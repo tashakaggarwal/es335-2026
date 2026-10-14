@@ -74,7 +74,10 @@ def parse_match(path: Path):
     base = {
         "match_id": path.stem,
         "date": info["dates"][0],
-        "season": str(info["season"])[:4],  # "2007/08" -> "2007"
+        # IPL edition = calendar year of the match. Cricsheet's own label is
+        # "2007/08" and "2009/10" for two editions, which truncating to four
+        # characters turns into 2007 and a clash with the real 2009 season.
+        "season": int(info["dates"][0][:4]),
         "venue": info.get("venue"),
         "city": info.get("city"),
         "batting_team": norm(chasing_team),
