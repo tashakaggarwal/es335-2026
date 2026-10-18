@@ -127,7 +127,7 @@ def parse_match(path: Path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("json_dir", type=Path)
-    ap.add_argument("--out", type=Path, default=Path("data/overs.csv"))
+    ap.add_argument("--out", type=Path, default=Path("data/processed/overs.csv"))
     args = ap.parse_args()
 
     if not args.json_dir.is_dir():
