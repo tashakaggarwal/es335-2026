@@ -1,0 +1,45 @@
+{
+  "core": [
+    "runs_so_far",
+    "target",
+    "wickets_lost",
+    "balls_left",
+    "current_run_rate",
+    "required_run_rate"
+  ],
+  "derived": [
+    "run_rate_diff",
+    "runs_needed_frac",
+    "resources",
+    "runs_needed_per_wicket"
+  ],
+  "momentum": [
+    "runs_last_3",
+    "wkts_last_3",
+    "boundaries_last_3",
+    "acceleration",
+    "balls_since_last_wicket"
+  ],
+  "batters": [
+    "bat_sr_mean",
+    "bat_balls_sum",
+    "bat_balls_max"
+  ],
+  "impact": [
+    "chasing_impact_used",
+    "bowling_impact_used"
+  ],
+  "history": [
+    "target_vs_season_avg",
+    "venue_chase_rate"
+  ],
+  "home": [
+    "chasing_team_home",
+    "bowling_team_home",
+    "home_edge"
+  ],
+  "form": [
+    "chaser_form",
+    "bowler_form"
+  ]
+}

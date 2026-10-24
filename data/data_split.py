@@ -1,7 +1,7 @@
 
 import pandas as pd
 
-df = pd.read_csv(r"C:\Users\LEGION\OneDrive\Documents\GitHub\es335-2026\data\processed\overs.csv")
+df = pd.read_csv(r"C:\Users\LEGION\OneDrive\Documents\GitHub\es335-2026\data\features\features_all.csv")
 
 df["season"] = pd.to_numeric(df["season"], errors="coerce")
 

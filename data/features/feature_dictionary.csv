@@ -1,0 +1,28 @@
+feature,group,definition
+runs_so_far,core,Current score of the chase
+target,core,First-innings total + 1
+wickets_lost,core,Wickets down
+balls_left,core,Legal balls remaining (wides and no-balls do not count)
+current_run_rate,core,Runs per over so far
+required_run_rate,core,"Runs needed per over for the rest of the chase, capped at 36"
+run_rate_diff,derived,Required minus current run rate
+runs_needed_frac,derived,Runs needed / target
+resources,derived,Balls left x wickets in hand (a DLS-style resource proxy)
+runs_needed_per_wicket,derived,Runs needed / wickets in hand
+runs_last_3,momentum,Runs scored in the last 3 completed overs
+wkts_last_3,momentum,Wickets lost in the last 3 completed overs
+boundaries_last_3,momentum,Fours and sixes off the bat in the last 3 overs
+acceleration,momentum,Run rate over the last 3 overs minus the overall current run rate
+balls_since_last_wicket,momentum,Legal balls since the last wicket (current partnership)
+bat_sr_mean,batters,"Mean past IPL strike rate of the two batters at the crease, pulled towards 125 when history is short"
+bat_balls_sum,batters,"Balls faced this innings by the two batters at the crease, added up"
+bat_balls_max,batters,Balls faced this innings by the more settled of the two batters
+chasing_impact_used,impact,1 if the chasing team has made its Impact Player substitution
+bowling_impact_used,impact,1 if the bowling team has made its Impact Player substitution
+target_vs_season_avg,history,Target minus the average target of this season's earlier matches (past only)
+venue_chase_rate,history,"Past chase win rate at the ground, pulled towards the league rate (past only)"
+chasing_team_home,home,1 if the chasing team is playing at one of its home grounds
+bowling_team_home,home,1 if the bowling team is playing at one of its home grounds
+home_edge,home,Home side's past home record minus league home win rate; positive favours the chasing team; 0 if neutral
+chaser_form,form,"Chasing team's win rate in its last 5 matches this season (past only, shrunk to 0.5)"
+bowler_form,form,"Bowling team's win rate in its last 5 matches this season (past only, shrunk to 0.5)"
