@@ -34,6 +34,7 @@ const niceDate = (iso) => {
   const d = new Date(iso + "T00:00:00");
   return isNaN(d) ? iso : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 };
+const swing = (m) => Math.max(...m.overs.map((o) => o[3])) - Math.min(...m.overs.map((o) => o[3]));
 
 let DATA, MATCHES, cur = null, overIdx = 0;
 
@@ -49,12 +50,11 @@ fetch("site/data/site_data.json")
 
 function init(d) {
   DATA = d; MATCHES = d.matches;
-  fillText(); buildSelect(); wireExplorer(); initWhatIf(); drawResults();
-  const swing = (m) => Math.max(...m.overs.map((o) => o[3])) - Math.min(...m.overs.map((o) => o[3]));
+  fillText(); buildSelect(); wireExplorer(); initLive(); initWhatIf(); drawResults();
   const best = MATCHES.reduce((a, b) => (swing(b) > swing(a) ? b : a));
   pick(best.id, true);
   window.addEventListener("resize", () => { drawResults(); });
-  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { drawResults(); drawWorm(); });
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { drawResults(); drawWorm(); drawLiveWorm(); });
 }
 
 /* ---------- static text that depends on the data ---------- */
@@ -87,7 +87,6 @@ function fillText() {
 }
 
 /* ---------- match explorer ---------- */
-function teamShort(t) { return t; }
 function buildSelect() {
   const sel = $("match-select"); sel.replaceChildren();
   const bySeason = {};
@@ -106,7 +105,6 @@ function wireExplorer() {
   $("match-select").addEventListener("change", (e) => pick(e.target.value, false));
   $("btn-random").addEventListener("click", () => pick(MATCHES[Math.floor(Math.random() * MATCHES.length)].id, true));
   $("btn-swing").addEventListener("click", () => {
-    const swing = (m) => Math.max(...m.overs.map((o) => o[3])) - Math.min(...m.overs.map((o) => o[3]));
     pick(MATCHES.reduce((a, b) => (swing(b) > swing(a) ? b : a)).id, true);
   });
   $("chk-rule").addEventListener("change", drawWorm);
@@ -141,40 +139,43 @@ const xs = (o) => G.l + (o / 20) * (G.W - G.l - G.r);
 const xInv = (x) => ((x - G.l) / (G.W - G.l - G.r)) * 20;
 const ys = (p) => G.t + (1 - p) * (G.H - G.t - G.b);
 
-function drawWorm() {
-  if (!cur) return;
-  const svg = $("worm"); svg.replaceChildren();
+function renderWormSVG(svg, chaser, bowler, allOvers, upto, showRule, reveal, clipPrefix) {
+  svg.replaceChildren();
   const green = css("--outfield"), blue = css("--dusk"), ink = css("--ink"), grid = css("--grid"), ball = css("--ball"), soft = css("--ink-soft");
-  const reveal = $("chk-reveal").checked, showRule = $("chk-rule").checked;
-  const n = cur.overs.length, upto = overIdx + 1;
+  const n = allOvers.length;
   const defs = el("defs", {}, svg);
-  const up = el("clipPath", { id: "clip-up" }, defs); el("rect", { x: 0, y: 0, width: G.W, height: ys(0.5) }, up);
-  const dn = el("clipPath", { id: "clip-dn" }, defs); el("rect", { x: 0, y: ys(0.5), width: G.W, height: G.H }, dn);
+  const up = el("clipPath", { id: clipPrefix + "-up" }, defs); el("rect", { x: 0, y: 0, width: G.W, height: ys(0.5) }, up);
+  const dn = el("clipPath", { id: clipPrefix + "-dn" }, defs); el("rect", { x: 0, y: ys(0.5), width: G.W, height: G.H }, dn);
   [0, 0.25, 0.5, 0.75, 1].forEach((p) => {
     el("line", { x1: G.l, x2: G.W - G.r, y1: ys(p), y2: ys(p), stroke: p === 0.5 ? soft : grid, "stroke-width": p === 0.5 ? 1.2 : 1, "stroke-dasharray": p === 0.5 ? "5 4" : "" }, svg);
     el("text", { x: G.l - 8, y: ys(p) + 4, "text-anchor": "end" }, svg, Math.round(p * 100) + "%");
   });
   [0, 5, 10, 15, 20].forEach((o) => el("text", { x: xs(o), y: G.H - G.b + 20, "text-anchor": "middle" }, svg, o));
   el("text", { x: (G.l + G.W - G.r) / 2, y: G.H - 4, "text-anchor": "middle" }, svg, "overs completed");
-  el("text", { x: G.l + 8, y: G.t + 16, fill: green, style: "fill:" + green + ";font-weight:600" }, svg, cur.chaser + " ahead");
-  el("text", { x: G.l + 8, y: G.H - G.b - 8, style: "fill:" + blue + ";font-weight:600" }, svg, cur.bowler + " ahead");
+  el("text", { x: G.l + 8, y: G.t + 16, fill: green, style: "fill:" + green + ";font-weight:600" }, svg, chaser + " ahead");
+  el("text", { x: G.l + 8, y: G.H - G.b - 8, style: "fill:" + blue + ";font-weight:600" }, svg, bowler + " ahead");
 
-  const pts = (arr, k) => arr.map((o, i) => [xs(o[0]), ys(o[k])]);
+  if (!n || upto <= 0) {
+    el("text", { x: (G.l + G.W - G.r) / 2, y: ys(0.5) - 10, "text-anchor": "middle" }, svg, "Record Over 1 above to start plotting the live chase trajectory.");
+    return;
+  }
+
+  const pts = (arr, k) => arr.map((o) => [xs(o[0]), ys(o[k])]);
   const line = (P) => P.map((q, i) => (i ? "L" : "M") + q[0].toFixed(1) + " " + q[1].toFixed(1)).join(" ");
   const step = (P) => P.map((q, i) => (i ? "H" + q[0].toFixed(1) + " V" + q[1].toFixed(1) : "M" + q[0].toFixed(1) + " " + q[1].toFixed(1))).join(" ");
-  const seen = cur.overs.slice(0, upto);
+  const seen = allOvers.slice(0, upto);
 
   if (showRule) {
     const rp = pts(seen, 4);
     el("path", { d: step(rp), fill: "none", stroke: soft, "stroke-width": 1.5, "stroke-dasharray": "3 3", opacity: 0.9 }, svg);
   }
   if (reveal && upto < n) {
-    el("path", { d: line(pts(cur.overs, 3)), fill: "none", stroke: ink, "stroke-width": 2, "stroke-dasharray": "2 5", opacity: 0.5 }, svg);
+    el("path", { d: line(pts(allOvers, 3)), fill: "none", stroke: ink, "stroke-width": 2, "stroke-dasharray": "2 5", opacity: 0.5 }, svg);
   }
   const P = pts(seen, 3), y50 = ys(0.5);
   const area = line(P) + " L" + P[P.length - 1][0].toFixed(1) + " " + y50 + " L" + P[0][0].toFixed(1) + " " + y50 + " Z";
-  el("path", { d: area, fill: green, opacity: 0.32, "clip-path": "url(#clip-up)" }, svg);
-  el("path", { d: area, fill: blue, opacity: 0.32, "clip-path": "url(#clip-dn)" }, svg);
+  el("path", { d: area, fill: green, opacity: 0.32, "clip-path": "url(#" + clipPrefix + "-up)" }, svg);
+  el("path", { d: area, fill: blue, opacity: 0.32, "clip-path": "url(#" + clipPrefix + "-dn)" }, svg);
   el("path", { d: line(P), fill: "none", stroke: ink, "stroke-width": 2.6, "stroke-linejoin": "round" }, svg);
   P.forEach((q) => el("circle", { cx: q[0], cy: q[1], r: 3, fill: ink }, svg));
 
@@ -186,7 +187,12 @@ function drawWorm() {
   const c = P[P.length - 1];
   el("line", { x1: c[0], x2: c[0], y1: G.t, y2: G.H - G.b, stroke: ball, "stroke-width": 1.2, opacity: 0.6 }, svg);
   el("circle", { cx: c[0], cy: c[1], r: 6.5, fill: ball, stroke: css("--paper"), "stroke-width": 2 }, svg);
-  svg.setAttribute("aria-label", "Win probability for " + cur.chaser + " after each over, shown up to over " + upto + ".");
+  svg.setAttribute("aria-label", "Win probability for " + chaser + " after each over, shown up to over " + upto + ".");
+}
+
+function drawWorm() {
+  if (!cur) return;
+  renderWormSVG($("worm"), cur.chaser, cur.bowler, cur.overs, overIdx + 1, $("chk-rule").checked, $("chk-reveal").checked, "clip");
 }
 
 function drawState() {
@@ -212,6 +218,490 @@ function drawState() {
   if (reveal) add("div", "result", cur.chaser + (cur.won ? " won the chase." : " lost the chase.") + (cur.won === (p >= 0.5) ? " The model was leaning the right way at this point." : " The model was leaning the wrong way at this point."));
 }
 
+/* ---------- live match predictor (full 20-feature model) ---------- */
+const LIVE_STORAGE_KEY = "es335_live_match_v1";
+let LIVE = null;
+
+function evalFullModel(featMap) {
+  const WI = DATA.whatif;
+  let z = WI.intercept;
+  WI.features.forEach((f, i) => {
+    const x = f in featMap && !Number.isNaN(featMap[f]) ? featMap[f] : WI.mean[i];
+    z += WI.coef[i] * ((x - WI.mean[i]) / WI.scale[i]);
+  });
+  return 1 / (1 + Math.exp(-z));
+}
+
+function computeOverPrediction(oversSoFar, overEntry, target, xi) {
+  const ov = overEntry.over;
+  const runs = overEntry.runs;
+  const wkts = overEntry.wkts;
+  const need = target - runs;
+  const balls = 120 - 6 * ov;
+  const hand = 10 - wkts;
+  const [pLose, pWin] = DATA.whatif.rule_probs || [0.3651, 0.8496];
+
+  if (need <= 0) {
+    return { p: 1.0, pB: 1.0, rrr: 0, crr: runs / ov, need: 0, balls, runs_last_3: overEntry.ov_runs, wkts_last_3: overEntry.ov_wkts, bounds_last_3: overEntry.ov_bounds, decided: "won" };
+  }
+  if (wkts >= 10 || balls <= 0) {
+    return { p: 0.0, pB: 0.0, rrr: balls > 0 ? (need / balls) * 6 : 36, crr: runs / ov, need, balls, runs_last_3: overEntry.ov_runs, wkts_last_3: overEntry.ov_wkts, bounds_last_3: overEntry.ov_bounds, decided: "lost" };
+  }
+
+  const crr = runs / ov;
+  const rawRrr = (need / balls) * 6;
+  const rrr = Math.min(36, rawRrr);
+  const rrd = rrr - crr;
+  const window3 = [...oversSoFar.slice(-2), overEntry];
+  const runs_last_3 = window3.reduce((s, x) => s + x.ov_runs, 0);
+  const wkts_last_3 = window3.reduce((s, x) => s + x.ov_wkts, 0);
+  const bounds_last_3 = window3.reduce((s, x) => s + x.ov_bounds, 0);
+  const accel = (runs_last_3 / Math.min(ov, 3)) - crr;
+
+  const sr1 = (xi[overEntry.bat1] && Number(xi[overEntry.bat1].sr)) || 125.0;
+  const sr2 = (xi[overEntry.bat2] && Number(xi[overEntry.bat2].sr)) || 125.0;
+  const bat_sr_mean = (sr1 + sr2) / 2;
+  const b1 = Number(overEntry.bat1_balls) || 0;
+  const b2 = Number(overEntry.bat2_balls) || 0;
+
+  const feats = {
+    runs_so_far: runs,
+    target: target,
+    wickets_lost: wkts,
+    balls_left: balls,
+    current_run_rate: crr,
+    required_run_rate: rrr,
+    run_rate_diff: rrd,
+    runs_needed_frac: need / target,
+    resources: balls * hand,
+    runs_needed_per_wicket: need / hand,
+    runs_last_3: runs_last_3,
+    wkts_last_3: wkts_last_3,
+    boundaries_last_3: bounds_last_3,
+    acceleration: accel,
+    balls_since_last_wicket: overEntry.bslw,
+    bat_sr_mean: bat_sr_mean,
+    bat_balls_sum: b1 + b2,
+    bat_balls_max: Math.max(b1, b2),
+    chasing_impact_used: overEntry.imp_chase ? 1 : 0,
+    bowling_impact_used: overEntry.imp_bowl ? 1 : 0,
+  };
+
+  const p = evalFullModel(feats);
+  const pB = rrd <= 0 ? pWin : pLose;
+  return { p, pB, rrr: rawRrr, crr, need, balls, runs_last_3, wkts_last_3, bounds_last_3, decided: null };
+}
+
+function defaultTeamXI(teamName) {
+  const rosters = (DATA.whatif && DATA.whatif.rosters) || {};
+  const batters = (DATA.whatif && DATA.whatif.batters) || {};
+  const list = rosters[teamName] || [];
+  const xi = [];
+  for (let i = 0; i < 12; i++) {
+    const name = list[i] || ("Batter " + (i + 1));
+    const sr = name in batters ? batters[name] : 125.0;
+    xi.push({ name, sr });
+  }
+  return xi;
+}
+
+function saveLiveState() {
+  try { localStorage.setItem(LIVE_STORAGE_KEY, JSON.stringify(LIVE)); } catch (_) {}
+}
+
+function recomputeAllLiveOvers() {
+  let cumRuns = 0, cumWkts = 0;
+  const updated = [];
+  for (const o of LIVE.overs) {
+    cumRuns += o.ov_runs;
+    cumWkts = clamp(cumWkts + o.ov_wkts, 0, 10);
+    const entry = { ...o, runs: cumRuns, wkts: cumWkts };
+    const res = computeOverPrediction(updated, entry, LIVE.target, LIVE.xi);
+    Object.assign(entry, res);
+    updated.push(entry);
+  }
+  LIVE.overs = updated;
+  saveLiveState();
+}
+
+function initLive() {
+  const batters = (DATA.whatif && DATA.whatif.batters) || {};
+  const rosters = (DATA.whatif && DATA.whatif.rosters) || {};
+  const teams = Object.keys(rosters).sort();
+
+  const dl = $("ipl-batters");
+  dl.replaceChildren();
+  Object.keys(batters).sort().forEach((name) => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.label = "SR " + batters[name];
+    dl.appendChild(opt);
+  });
+
+  const selC = $("live-chaser"), selB = $("live-bowler");
+  selC.replaceChildren(); selB.replaceChildren();
+  teams.forEach((t) => {
+    const o1 = document.createElement("option"); o1.value = t; o1.textContent = t; selC.appendChild(o1);
+    const o2 = document.createElement("option"); o2.value = t; o2.textContent = t; selB.appendChild(o2);
+  });
+
+  let loaded = null;
+  try { loaded = JSON.parse(localStorage.getItem(LIVE_STORAGE_KEY) || "null"); } catch (_) {}
+  if (loaded && loaded.xi && Array.isArray(loaded.xi) && loaded.xi.length === 12) {
+    LIVE = loaded;
+  } else {
+    const defC = teams.includes("Royal Challengers Bengaluru") ? "Royal Challengers Bengaluru" : (teams[0] || "Chasing Team");
+    const defB = teams.includes("Chennai Super Kings") ? "Chennai Super Kings" : (teams[1] || "Bowling Team");
+    LIVE = {
+      chaser: defC,
+      bowler: defB,
+      target: 185,
+      xi: defaultTeamXI(defC),
+      overs: [],
+    };
+  }
+
+  selC.value = LIVE.chaser;
+  selB.value = LIVE.bowler;
+  $("live-target").value = LIVE.target;
+
+  renderXIGrid();
+  syncCreaseDropdowns();
+  prepareNextOverForm();
+  recomputeAllLiveOvers();
+  refreshLiveUI();
+
+  selC.addEventListener("change", () => {
+    LIVE.chaser = selC.value;
+    if (LIVE.overs.length === 0) {
+      LIVE.xi = defaultTeamXI(LIVE.chaser);
+      renderXIGrid();
+      syncCreaseDropdowns();
+    }
+    saveLiveState();
+    refreshLiveUI();
+  });
+  selB.addEventListener("change", () => {
+    LIVE.bowler = selB.value;
+    saveLiveState();
+    refreshLiveUI();
+  });
+  $("live-target").addEventListener("input", () => {
+    LIVE.target = clamp(+$("live-target").value || 185, 1, 400);
+    recomputeAllLiveOvers();
+    refreshLiveUI();
+  });
+  $("btn-load-xi").addEventListener("click", () => {
+    LIVE.xi = defaultTeamXI(LIVE.chaser);
+    renderXIGrid();
+    syncCreaseDropdowns();
+    recomputeAllLiveOvers();
+    refreshLiveUI();
+  });
+  $("btn-reset-live").addEventListener("click", () => {
+    LIVE.overs = [];
+    prepareNextOverForm();
+    saveLiveState();
+    refreshLiveUI();
+  });
+  $("lo-wkts").addEventListener("change", onOverWicketsChanged);
+  ["lo-runs", "lo-wkts", "lo-bounds", "lo-bslw", "lo-bat1", "lo-bat2", "lo-bat1-balls", "lo-bat2-balls", "lo-imp-chase", "lo-imp-bowl"].forEach((id) => {
+    $(id).addEventListener("input", updateLiveFormPreview);
+  });
+  $("btn-add-over").addEventListener("click", recordNextOver);
+  $("btn-undo-over").addEventListener("click", () => {
+    if (!LIVE.overs.length) return;
+    LIVE.overs.pop();
+    prepareNextOverForm();
+    saveLiveState();
+    refreshLiveUI();
+  });
+}
+
+function renderXIGrid() {
+  const batters = (DATA.whatif && DATA.whatif.batters) || {};
+  const grid = $("live-xi-grid");
+  grid.replaceChildren();
+  LIVE.xi.forEach((slot, idx) => {
+    const row = document.createElement("div");
+    row.className = "xi-slot";
+    const num = document.createElement("span");
+    num.className = "slot-num";
+    num.textContent = idx < 11 ? "#" + (idx + 1) : "IMP";
+    num.title = idx < 11 ? "Batting position " + (idx + 1) : "12th man / Impact Player substitute";
+
+    const nameIn = document.createElement("input");
+    nameIn.type = "text";
+    nameIn.setAttribute("list", "ipl-batters");
+    nameIn.value = slot.name;
+    nameIn.placeholder = idx < 11 ? "Batter " + (idx + 1) : "Impact Player";
+    nameIn.setAttribute("aria-label", (idx < 11 ? "Batter " + (idx + 1) : "Impact Player") + " name");
+
+    const srIn = document.createElement("input");
+    srIn.type = "number";
+    srIn.step = "0.1";
+    srIn.min = "50";
+    srIn.max = "250";
+    srIn.value = Number(slot.sr).toFixed(1);
+    srIn.title = "Shrunk IPL strike rate (default 125)";
+    srIn.setAttribute("aria-label", (idx < 11 ? "Batter " + (idx + 1) : "Impact Player") + " strike rate");
+
+    nameIn.addEventListener("input", () => {
+      slot.name = nameIn.value.trim() || ("Batter " + (idx + 1));
+      if (slot.name in batters) {
+        slot.sr = batters[slot.name];
+        srIn.value = Number(slot.sr).toFixed(1);
+      }
+      syncCreaseDropdowns();
+      recomputeAllLiveOvers();
+      refreshLiveUI();
+    });
+    srIn.addEventListener("input", () => {
+      slot.sr = clamp(+srIn.value || 125.0, 40, 300);
+      syncCreaseDropdowns();
+      recomputeAllLiveOvers();
+      refreshLiveUI();
+    });
+
+    row.append(num, nameIn, srIn);
+    grid.appendChild(row);
+  });
+}
+
+function syncCreaseDropdowns() {
+  const b1 = $("lo-bat1"), b2 = $("lo-bat2");
+  const v1 = b1.value !== "" ? +b1.value : 0;
+  const v2 = b2.value !== "" ? +b2.value : 1;
+  [b1, b2].forEach((sel) => {
+    sel.replaceChildren();
+    LIVE.xi.forEach((slot, idx) => {
+      const o = document.createElement("option");
+      o.value = idx;
+      o.textContent = (idx < 11 ? "#" + (idx + 1) : "IMP") + " " + slot.name + " (SR " + Number(slot.sr).toFixed(0) + ")";
+      sel.appendChild(o);
+    });
+  });
+  b1.value = clamp(v1, 0, 11);
+  b2.value = clamp(v2, 0, 11);
+}
+
+function prepareNextOverForm() {
+  const nextOv = LIVE.overs.length + 1;
+  if (nextOv === 1) {
+    $("lo-runs").value = 8;
+    $("lo-wkts").value = 0;
+    $("lo-bounds").value = 1;
+    $("lo-bslw").value = 6;
+    $("lo-bat1").value = 0;
+    $("lo-bat2").value = 1;
+    $("lo-bat1-balls").value = 3;
+    $("lo-bat2-balls").value = 3;
+    $("lo-imp-chase").checked = false;
+    $("lo-imp-bowl").checked = false;
+  } else {
+    const prev = LIVE.overs[LIVE.overs.length - 1];
+    $("lo-runs").value = 8;
+    $("lo-wkts").value = 0;
+    $("lo-bounds").value = 1;
+    $("lo-bslw").value = prev.bslw + 6;
+    $("lo-bat1").value = prev.bat1;
+    $("lo-bat2").value = prev.bat2;
+    $("lo-bat1-balls").value = prev.bat1_balls + 3;
+    $("lo-bat2-balls").value = prev.bat2_balls + 3;
+    $("lo-imp-chase").checked = !!prev.imp_chase;
+    $("lo-imp-bowl").checked = !!prev.imp_bowl;
+  }
+}
+
+function onOverWicketsChanged() {
+  const w = clamp(+$("lo-wkts").value || 0, 0, 10);
+  const prev = LIVE.overs.length ? LIVE.overs[LIVE.overs.length - 1] : null;
+  const prevWkts = prev ? prev.wkts : 0;
+  if (w === 0) {
+    $("lo-bslw").value = (prev ? prev.bslw : 0) + 6;
+    if (prev) {
+      $("lo-bat1").value = prev.bat1;
+      $("lo-bat2").value = prev.bat2;
+      $("lo-bat1-balls").value = prev.bat1_balls + 3;
+      $("lo-bat2-balls").value = prev.bat2_balls + 3;
+    } else {
+      $("lo-bat1").value = 0;
+      $("lo-bat2").value = 1;
+      $("lo-bat1-balls").value = 3;
+      $("lo-bat2-balls").value = 3;
+    }
+  } else {
+    $("lo-bslw").value = 3;
+    const nextBatterIdx = clamp(prevWkts + w + 1, 2, 11);
+    if (w === 1) {
+      $("lo-bat2").value = nextBatterIdx;
+      $("lo-bat2-balls").value = 2;
+      $("lo-bat1-balls").value = (prev ? prev.bat1_balls : 0) + 4;
+    } else {
+      $("lo-bat1").value = clamp(prevWkts + w, 2, 11);
+      $("lo-bat2").value = nextBatterIdx;
+      $("lo-bat1-balls").value = 2;
+      $("lo-bat2-balls").value = 2;
+    }
+  }
+  updateLiveFormPreview();
+}
+
+function buildDraftOverEntry() {
+  const nextOv = LIVE.overs.length + 1;
+  const prev = LIVE.overs.length ? LIVE.overs[LIVE.overs.length - 1] : { runs: 0, wkts: 0 };
+  const ov_runs = clamp(+$("lo-runs").value || 0, 0, 60);
+  const ov_wkts = clamp(+$("lo-wkts").value || 0, 0, 10 - prev.wkts);
+  const ov_bounds = clamp(+$("lo-bounds").value || 0, 0, 10);
+  const bslw = clamp(+$("lo-bslw").value || 0, 0, 120);
+  const bat1 = clamp(+$("lo-bat1").value || 0, 0, 11);
+  const bat2 = clamp(+$("lo-bat2").value || 0, 0, 11);
+  const bat1_balls = clamp(+$("lo-bat1-balls").value || 0, 0, 120);
+  const bat2_balls = clamp(+$("lo-bat2-balls").value || 0, 0, 120);
+  const imp_chase = $("lo-imp-chase").checked ? 1 : 0;
+  const imp_bowl = $("lo-imp-bowl").checked ? 1 : 0;
+  const entry = {
+    over: nextOv, ov_runs, ov_wkts, ov_bounds,
+    runs: prev.runs + ov_runs, wkts: prev.wkts + ov_wkts, bslw,
+    bat1, bat2, bat1_balls, bat2_balls, imp_chase, imp_bowl,
+  };
+  const res = computeOverPrediction(LIVE.overs, entry, LIVE.target, LIVE.xi);
+  return Object.assign(entry, res);
+}
+
+function isChaseFinished() {
+  if (!LIVE.overs.length) return false;
+  const last = LIVE.overs[LIVE.overs.length - 1];
+  return !!last.decided || last.over >= 19;
+}
+
+function updateLiveFormPreview() {
+  const hint = $("live-form-hint");
+  if (isChaseFinished()) {
+    hint.textContent = "";
+    return;
+  }
+  const draft = buildDraftOverEntry();
+  hint.textContent = "Preview after Over " + draft.over + ": " + draft.runs + "/" + draft.wkts + " — Model win chance: " + pct(draft.p) + "%";
+}
+
+function recordNextOver() {
+  if (isChaseFinished()) return;
+  const entry = buildDraftOverEntry();
+  LIVE.overs.push(entry);
+  if (LIVE.overs.length === 1) {
+    $("live-setup-box").open = false;
+  }
+  prepareNextOverForm();
+  saveLiveState();
+  refreshLiveUI();
+}
+
+function refreshLiveUI() {
+  const finished = isChaseFinished();
+  const nextOv = LIVE.overs.length + 1;
+  $("btn-undo-over").disabled = LIVE.overs.length === 0;
+  $("btn-add-over").disabled = finished;
+
+  if (finished) {
+    const last = LIVE.overs[LIVE.overs.length - 1];
+    $("live-over-title").textContent = last.decided === "won"
+      ? "Chase complete — " + LIVE.chaser + " won!"
+      : last.decided === "lost"
+      ? "Chase complete — " + LIVE.bowler + " won!"
+      : "19 overs logged (end of over-by-over predictions)";
+    $("btn-add-over").textContent = "Chase complete";
+  } else {
+    $("live-over-title").textContent = "Update after Over " + nextOv + " (target " + LIVE.target + ")";
+    $("btn-add-over").textContent = "Record Over " + nextOv + " & Predict";
+  }
+
+  updateLiveFormPreview();
+  drawLiveWorm();
+  drawLiveState();
+  drawLiveLog();
+}
+
+function drawLiveWorm() {
+  const svg = $("live-worm");
+  if (!svg || !LIVE) return;
+  const wormOvers = LIVE.overs.map((o) => [o.over, o.runs, o.wkts, o.p, o.pB]);
+  renderWormSVG(svg, LIVE.chaser, LIVE.bowler, wormOvers, wormOvers.length, true, false, "live-clip");
+}
+
+function drawLiveState() {
+  const s = $("live-state");
+  if (!s || !LIVE) return;
+  s.replaceChildren();
+  const add = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; e.textContent = txt; s.appendChild(e); return e; };
+
+  if (LIVE.overs.length === 0) {
+    const draft = buildDraftOverEntry();
+    add("div", "over", "Ready to start: " + LIVE.chaser + " chasing " + LIVE.target);
+    const big = add("div", "big", ""); big.append(pct(draft.p)); const sm = document.createElement("small"); sm.textContent = "%"; big.append(sm);
+    add("div", "big-cap", "Preview win chance after Over 1 (click Record Over 1)");
+    const sp = document.createElement("div"); sp.className = "split"; const i = document.createElement("i"); i.style.width = (draft.p * 100).toFixed(1) + "%"; sp.appendChild(i); s.appendChild(sp);
+    const dl = document.createElement("dl");
+    const row = (k, v) => { const dt = document.createElement("dt"); dt.textContent = k; const dd = document.createElement("dd"); dd.textContent = v; dl.append(dt, dd); };
+    row("Target", LIVE.target + " runs in 120 balls");
+    row("Openers", LIVE.xi[0].name + " (SR " + f2(LIVE.xi[0].sr, 1) + ") & " + LIVE.xi[1].name + " (SR " + f2(LIVE.xi[1].sr, 1) + ")");
+    row("Model inputs", "All 20 features (score, rates, last 3 overs, batter SRs, balls faced, partnership, impact player)");
+    s.appendChild(dl);
+    return;
+  }
+
+  const o = LIVE.overs[LIVE.overs.length - 1];
+  const b1 = LIVE.xi[o.bat1] || { name: "Batter", sr: 125 };
+  const b2 = LIVE.xi[o.bat2] || { name: "Batter", sr: 125 };
+  add("div", "over", "After " + o.over + " of 20 overs: " + o.runs + "/" + o.wkts);
+  const big = add("div", "big", ""); big.append(pct(o.p)); const sm = document.createElement("small"); sm.textContent = "%"; big.append(sm);
+  add("div", "big-cap", LIVE.chaser + " win chance (full 20-feature model)");
+  const sp = document.createElement("div"); sp.className = "split"; const i = document.createElement("i"); i.style.width = (o.p * 100).toFixed(1) + "%"; sp.appendChild(i); s.appendChild(sp);
+  const dl = document.createElement("dl");
+  const row = (k, v) => { const dt = document.createElement("dt"); dt.textContent = k; const dd = document.createElement("dd"); dd.textContent = v; dl.append(dt, dd); };
+  row("Needs", o.need + " off " + o.balls + " balls");
+  row("Required rate", f2(o.rrr) + " an over");
+  row("Scoring at", f2(o.crr) + " an over");
+  row("At the crease", b1.name + " (" + o.bat1_balls + "b, SR " + f2(b1.sr, 0) + ") & " + b2.name + " (" + o.bat2_balls + "b, SR " + f2(b2.sr, 0) + ")");
+  row("Last 3 overs", o.runs_last_3 + " runs, " + o.wkts_last_3 + " wkt(s), " + o.bounds_last_3 + " boundary(s)");
+  row("Partnership", o.bslw + " legal balls since last wicket");
+  row("Run-rate rule", o.pB > 0.5 ? "on or ahead of the rate (" + pct(o.pB) + "%)" : "behind the rate (" + pct(o.pB) + "%)");
+  s.appendChild(dl);
+}
+
+function drawLiveLog() {
+  const wrap = $("live-log-wrap"), body = $("live-log-body");
+  if (!wrap || !body || !LIVE) return;
+  if (LIVE.overs.length === 0) {
+    wrap.hidden = true;
+    return;
+  }
+  wrap.hidden = false;
+  body.replaceChildren();
+  LIVE.overs.slice().reverse().forEach((o) => {
+    const tr = document.createElement("tr");
+    const b1 = (LIVE.xi[o.bat1] && LIVE.xi[o.bat1].name) || ("#" + (o.bat1 + 1));
+    const b2 = (LIVE.xi[o.bat2] && LIVE.xi[o.bat2].name) || ("#" + (o.bat2 + 1));
+    const cells = [
+      "Over " + o.over,
+      o.ov_runs + " runs, " + o.ov_wkts + " wkt (" + o.ov_bounds + "x4/6)",
+      o.runs + "/" + o.wkts + " (need " + o.need + " off " + o.balls + "b)",
+      b1 + " (" + o.bat1_balls + "b), " + b2 + " (" + o.bat2_balls + "b)",
+      o.runs_last_3 + "R / " + o.wkts_last_3 + "W",
+      f2(o.rrr),
+      pct(o.pB) + "%",
+      pct(o.p) + "%",
+    ];
+    cells.forEach((c, idx) => {
+      const td = document.createElement("td");
+      if (idx === 7) td.style.fontWeight = "700";
+      td.textContent = c;
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+}
+
 /* ---------- what if ---------- */
 let WI;
 function initWhatIf() {
@@ -220,7 +710,7 @@ function initWhatIf() {
   const t = $("wi-target"); t.min = Math.max(60, tmin); t.max = tmax; t.value = Math.round(DATA.meta.mean_target_fit || 175);
   ["wi-target", "wi-over", "wi-runs", "wi-wkts"].forEach((id) => $(id).addEventListener("input", drawWhatIf));
   $("wi-note").textContent = WI.same_as_final_model
-    ? "This is the final model. Inputs you cannot set here (" + (WI.held_at_average.length ? WI.held_at_average.map(label).join(", ").toLowerCase() : "none") + ") are held at their training average."
+    ? "This is the final model. Inputs you cannot set here (" + (WI.held_at_average.length ? WI.held_at_average.map(label).join(", ").toLowerCase() : "none") + ") are held at their training average. Use the Live match predictor above to set all 20 features."
     : "This panel uses a simpler logistic regression on the ten core features, not the final model, so numbers can differ a little from the explorer.";
   drawWhatIf();
 }
@@ -231,9 +721,8 @@ function wiProb(target, over, runs, wk) {
     runs_so_far: runs, target, wickets_lost: wk, balls_left: balls, current_run_rate: crr, required_run_rate: rrr,
     run_rate_diff: rrr - crr, runs_needed_frac: need / target, resources: balls * hand, runs_needed_per_wicket: need / hand,
   };
-  let z = WI.intercept;
-  WI.features.forEach((f, i) => { const x = f in v ? v[f] : WI.mean[i]; z += WI.coef[i] * ((x - WI.mean[i]) / WI.scale[i]); });
-  return { p: 1 / (1 + Math.exp(-z)), need, balls, rrr: need / balls * 6, crr, ahead: crr >= need / balls * 6 };
+  const p = evalFullModel(v);
+  return { p, need, balls, rrr: need / balls * 6, crr, ahead: crr >= need / balls * 6 };
 }
 function drawWhatIf() {
   const target = +$("wi-target").value, over = +$("wi-over").value, wk = +$("wi-wkts").value;

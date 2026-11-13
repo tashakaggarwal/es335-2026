@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>IPL chase win probability</title>
-<meta name="description" content="A model that estimates, over by over, the chance that the chasing team wins an IPL match. Explore real matches, try your own scenario, and see how well it works.">
+<meta name="description" content="A model that estimates, over by over, the chance that the chasing team wins an IPL match. Explore real matches, track a live match with your Playing 11, try scenarios, and see how well it works.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,650;12..96,700;12..96,800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
@@ -17,6 +17,7 @@
     <b>IPL chase win probability</b>
     <nav aria-label="Sections">
       <a href="#explorer">Match explorer</a>
+      <a href="#live">Live match</a>
       <a href="#whatif">What if</a>
       <a href="#results">How well it works</a>
       <a href="#method">How it was built</a>
@@ -28,7 +29,7 @@
 <main>
 <div class="wrap hero">
   <h1>Who wins the chase?</h1>
-  <p class="lede" id="lede">After every over of a second innings, the model gives the chasing team's chance of winning. Scrub through a real match below and see how the odds move.</p>
+  <p class="lede" id="lede">After every over of a second innings, the model gives the chasing team's chance of winning. Scrub through a real match below, or track a live chase over by over with your Playing 11.</p>
 </div>
 
 <section id="explorer" aria-label="Match explorer">
@@ -61,10 +62,116 @@
   </div>
 </section>
 
+<section id="live" aria-labelledby="live-h">
+  <div class="wrap">
+    <h2 id="live-h">Live match predictor</h2>
+    <p class="intro">Enter the chasing team's Playing 11 and target, then log each completed over to get the full 20-feature model's live win probability and trajectory.</p>
+    <datalist id="ipl-batters"></datalist>
+
+    <details class="live-setup" id="live-setup-box" open>
+      <summary>1. Match &amp; Playing 11 setup</summary>
+      <div class="setup-body">
+        <div class="controls">
+          <label for="live-chaser">Chasing team</label>
+          <select id="live-chaser"></select>
+          <label for="live-bowler">Bowling team</label>
+          <select id="live-bowler"></select>
+          <label for="live-target">Target runs</label>
+          <input type="number" id="live-target" min="50" max="320" value="185" style="width:92px">
+          <button type="button" id="btn-load-xi">Load team's recent XI</button>
+          <button type="button" id="btn-reset-live" class="btn-danger">Reset match</button>
+        </div>
+        <p class="note">Select or type any player name below. Historical IPL strike rates (shrunk towards 125) fill in automatically when a known player is chosen, or you can edit them directly. Slot 12 is the optional Impact Player.</p>
+        <div class="xi-grid" id="live-xi-grid"></div>
+      </div>
+    </details>
+
+    <div class="stage live-stage">
+      <div>
+        <div class="live-entry-card">
+          <div class="live-entry-head">
+            <h3 id="live-over-title">Update after Over 1</h3>
+            <div class="live-entry-actions">
+              <button type="button" id="btn-undo-over" disabled>Undo last over</button>
+            </div>
+          </div>
+          <div class="live-form-grid" id="live-form-grid">
+            <div class="form-item">
+              <label for="lo-runs">Runs in this over</label>
+              <input type="number" id="lo-runs" min="0" max="45" value="8">
+            </div>
+            <div class="form-item">
+              <label for="lo-wkts">Wickets in this over</label>
+              <input type="number" id="lo-wkts" min="0" max="6" value="0">
+            </div>
+            <div class="form-item">
+              <label for="lo-bounds">Boundaries (4s + 6s)</label>
+              <input type="number" id="lo-bounds" min="0" max="7" value="1">
+            </div>
+            <div class="form-item">
+              <label for="lo-bslw">Balls since last wicket</label>
+              <input type="number" id="lo-bslw" min="0" max="120" value="6" title="Legal balls bowled since the last wicket fell">
+            </div>
+            <div class="form-item span-2">
+              <label for="lo-bat1">Striker at crease (end of over)</label>
+              <div class="bat-row">
+                <select id="lo-bat1"></select>
+                <label class="inline-lbl" for="lo-bat1-balls">Balls faced</label>
+                <input type="number" id="lo-bat1-balls" min="0" max="120" value="3" style="width:78px">
+              </div>
+            </div>
+            <div class="form-item span-2">
+              <label for="lo-bat2">Non-striker at crease (end of over)</label>
+              <div class="bat-row">
+                <select id="lo-bat2"></select>
+                <label class="inline-lbl" for="lo-bat2-balls">Balls faced</label>
+                <input type="number" id="lo-bat2-balls" min="0" max="120" value="3" style="width:78px">
+              </div>
+            </div>
+            <div class="form-item span-2 impact-row">
+              <label class="check"><input type="checkbox" id="lo-imp-chase"> Chasing side used Impact Player</label>
+              <label class="check"><input type="checkbox" id="lo-imp-bowl"> Bowling side used Impact Player</label>
+            </div>
+          </div>
+          <div class="live-submit-row">
+            <button type="button" id="btn-add-over" class="btn-primary">Record Over 1 &amp; Predict</button>
+            <span class="note" id="live-form-hint"></span>
+          </div>
+        </div>
+
+        <div class="chart-box" style="margin-top:16px">
+          <svg id="live-worm" role="img" aria-label="Live match win probability by over" viewBox="0 0 760 360"></svg>
+        </div>
+        <p class="hint">Red ticks on the bottom edge mark wickets. Dashed step line shows the simple run-rate rule.</p>
+      </div>
+
+      <div class="state" aria-live="polite" id="live-state"></div>
+    </div>
+
+    <div class="table-scroll" id="live-log-wrap" style="margin-top:18px" hidden>
+      <table id="live-log-table">
+        <thead>
+          <tr>
+            <th scope="col">Over</th>
+            <th scope="col">This over</th>
+            <th scope="col">Score</th>
+            <th scope="col">Batters at crease</th>
+            <th scope="col">Last 3 overs</th>
+            <th scope="col">Required rate</th>
+            <th scope="col">Run-rate rule</th>
+            <th scope="col">Model win chance</th>
+          </tr>
+        </thead>
+        <tbody id="live-log-body"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
 <section id="whatif" aria-labelledby="whatif-h">
   <div class="wrap">
     <h2 id="whatif-h">What if</h2>
-    <p class="intro">Set up any chase and read off the model's estimate. The calculation runs in your browser from the fitted model's numbers.</p>
+    <p class="intro">Set up any quick chase scenario and read off the model's estimate. The calculation runs in your browser from the fitted model's numbers.</p>
     <div class="whatif">
       <div id="wi-controls">
         <div class="field"><div class="row"><label for="wi-target">Target</label><output id="o-target"></output></div><input type="range" id="wi-target"></div>
