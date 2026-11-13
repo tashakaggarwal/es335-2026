@@ -16,6 +16,68 @@ const LABELS = {
 };
 const label = (f) => LABELS[f] || f.replace(/_/g, " ");
 
+/* Official IPL team palettes for Day Match (light) and Night Match (dark) + clash-avoidance secondary kit colors */
+const TEAM_COLORS = {
+  "Chennai Super Kings":         { light: ["#d49000", "#1b559c"], dark: ["#f5bd1f", "#4c8ff5"], family: "yellow" },
+  "Mumbai Indians":              { light: ["#005da0", "#c98a00"], dark: ["#3b98f5", "#f0b429"], family: "blue" },
+  "Royal Challengers Bengaluru": { light: ["#c81d25", "#2b3442"], dark: ["#f24952", "#e0b53b"], family: "red" },
+  "Kolkata Knight Riders":       { light: ["#592c82", "#c48f00"], dark: ["#a770ef", "#f2c144"], family: "purple" },
+  "Delhi Capitals":              { light: ["#17479e", "#c9252d"], dark: ["#4d88f7", "#f2555c"], family: "blue" },
+  "Rajasthan Royals":            { light: ["#d11d73", "#1e3f85"], dark: ["#f55ca8", "#5989f2"], family: "pink" },
+  "Sunrisers Hyderabad":         { light: ["#df5316", "#333942"], dark: ["#ff7d3b", "#a3adb8"], family: "orange" },
+  "Punjab Kings":                { light: ["#b51b2e", "#b8860b"], dark: ["#f04e63", "#e6b842"], family: "red" },
+  "Gujarat Titans":              { light: ["#1b396a", "#b88a14"], dark: ["#4997d6", "#e5b949"], family: "navy" },
+  "Lucknow Super Giants":        { light: ["#007694", "#d95b16"], dark: ["#28bbe0", "#ff8442"], family: "cyan" },
+};
+
+function isDark() {
+  const attr = document.documentElement.getAttribute("data-theme");
+  if (attr === "dark") return true;
+  if (attr === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+function getMatchColors(chaser, bowler) {
+  const mode = isDark() ? "dark" : "light";
+  const cDef = TEAM_COLORS[chaser] || { light: [css("--outfield"), css("--outfield")], dark: [css("--outfield"), css("--outfield")], family: "c" };
+  const bDef = TEAM_COLORS[bowler] || { light: [css("--dusk"), css("--dusk")], dark: [css("--dusk"), css("--dusk")], family: "b" };
+  const cCol = cDef[mode][0];
+  const bCol = cDef.family === bDef.family ? bDef[mode][1] : bDef[mode][0];
+  return [cCol, bCol];
+}
+
+function initTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem("es335_theme"); } catch (_) {}
+  const initial = saved === "dark" || saved === "light" ? saved : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  applyTheme(initial, false);
+  $("theme-toggle").addEventListener("click", () => {
+    const next = isDark() ? "light" : "dark";
+    applyTheme(next, true);
+  });
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+    let curSaved = null;
+    try { curSaved = localStorage.getItem("es335_theme"); } catch (_) {}
+    if (!curSaved) applyTheme(e.matches ? "dark" : "light", false);
+  });
+}
+
+function applyTheme(mode, persist) {
+  document.documentElement.setAttribute("data-theme", mode);
+  if (persist) {
+    try { localStorage.setItem("es335_theme", mode); } catch (_) {}
+  }
+  const dark = mode === "dark";
+  $("theme-icon").textContent = dark ? "🌙" : "☀️";
+  $("theme-label").textContent = dark ? "Night match" : "Day match";
+  if (DATA) {
+    drawWorm();
+    drawState();
+    refreshLiveUI();
+    drawResults();
+  }
+}
+
 function el(tag, attrs, parent, text) {
   const e = document.createElementNS(NS, tag);
   for (const k in attrs || {}) e.setAttribute(k, attrs[k]);
@@ -38,6 +100,8 @@ const swing = (m) => Math.max(...m.overs.map((o) => o[3])) - Math.min(...m.overs
 
 let DATA, MATCHES, cur = null, overIdx = 0;
 
+initTheme();
+
 fetch("site/data/site_data.json")
   .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
   .then(init)
@@ -54,7 +118,6 @@ function init(d) {
   const best = MATCHES.reduce((a, b) => (swing(b) > swing(a) ? b : a));
   pick(best.id, true);
   window.addEventListener("resize", () => { drawResults(); });
-  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { drawResults(); drawWorm(); drawLiveWorm(); });
 }
 
 /* ---------- static text that depends on the data ---------- */
@@ -122,6 +185,17 @@ function wireExplorer() {
   svg.addEventListener("pointerup", () => (down = false));
   svg.addEventListener("pointercancel", () => (down = false));
 }
+
+function makeTeamBadge(teamName, color) {
+  const span = document.createElement("span");
+  span.className = "team-badge";
+  const dot = document.createElement("span");
+  dot.className = "team-dot";
+  dot.style.background = color;
+  span.append(dot, teamName);
+  return span;
+}
+
 function pick(id, reset) {
   cur = MATCHES.find((m) => m.id === id);
   $("match-select").value = id;
@@ -129,7 +203,6 @@ function pick(id, reset) {
   overIdx = reset || overIdx >= cur.overs.length ? Math.min(8, cur.overs.length - 1) : overIdx;
   sl.value = overIdx + 1;
   $("chk-reveal").checked = false;
-  $("match-title").textContent = cur.chaser + " chasing " + cur.target + " against " + cur.bowler;
   $("match-sub").textContent = [cur.venue, niceDate(cur.date)].filter(Boolean).join(", ");
   drawWorm(); drawState();
 }
@@ -139,9 +212,9 @@ const xs = (o) => G.l + (o / 20) * (G.W - G.l - G.r);
 const xInv = (x) => ((x - G.l) / (G.W - G.l - G.r)) * 20;
 const ys = (p) => G.t + (1 - p) * (G.H - G.t - G.b);
 
-function renderWormSVG(svg, chaser, bowler, allOvers, upto, showRule, reveal, clipPrefix) {
+function renderWormSVG(svg, chaser, bowler, chaserColor, bowlerColor, allOvers, upto, showRule, reveal, clipPrefix) {
   svg.replaceChildren();
-  const green = css("--outfield"), blue = css("--dusk"), ink = css("--ink"), grid = css("--grid"), ball = css("--ball"), soft = css("--ink-soft");
+  const ink = css("--ink"), grid = css("--grid"), ball = css("--ball"), soft = css("--ink-soft");
   const n = allOvers.length;
   const defs = el("defs", {}, svg);
   const up = el("clipPath", { id: clipPrefix + "-up" }, defs); el("rect", { x: 0, y: 0, width: G.W, height: ys(0.5) }, up);
@@ -152,8 +225,8 @@ function renderWormSVG(svg, chaser, bowler, allOvers, upto, showRule, reveal, cl
   });
   [0, 5, 10, 15, 20].forEach((o) => el("text", { x: xs(o), y: G.H - G.b + 20, "text-anchor": "middle" }, svg, o));
   el("text", { x: (G.l + G.W - G.r) / 2, y: G.H - 4, "text-anchor": "middle" }, svg, "overs completed");
-  el("text", { x: G.l + 8, y: G.t + 16, fill: green, style: "fill:" + green + ";font-weight:600" }, svg, chaser + " ahead");
-  el("text", { x: G.l + 8, y: G.H - G.b - 8, style: "fill:" + blue + ";font-weight:600" }, svg, bowler + " ahead");
+  el("text", { x: G.l + 8, y: G.t + 16, fill: chaserColor, style: "fill:" + chaserColor + ";font-weight:700" }, svg, chaser + " ahead");
+  el("text", { x: G.l + 8, y: G.H - G.b - 8, fill: bowlerColor, style: "fill:" + bowlerColor + ";font-weight:700" }, svg, bowler + " ahead");
 
   if (!n || upto <= 0) {
     el("text", { x: (G.l + G.W - G.r) / 2, y: ys(0.5) - 10, "text-anchor": "middle" }, svg, "Record Over 1 above to start plotting the live chase trajectory.");
@@ -170,14 +243,17 @@ function renderWormSVG(svg, chaser, bowler, allOvers, upto, showRule, reveal, cl
     el("path", { d: step(rp), fill: "none", stroke: soft, "stroke-width": 1.5, "stroke-dasharray": "3 3", opacity: 0.9 }, svg);
   }
   if (reveal && upto < n) {
-    el("path", { d: line(pts(allOvers, 3)), fill: "none", stroke: ink, "stroke-width": 2, "stroke-dasharray": "2 5", opacity: 0.5 }, svg);
+    el("path", { d: line(pts(allOvers, 3)), fill: "none", stroke: chaserColor, "stroke-width": 2, "stroke-dasharray": "2 5", opacity: 0.55 }, svg);
   }
   const P = pts(seen, 3), y50 = ys(0.5);
   const area = line(P) + " L" + P[P.length - 1][0].toFixed(1) + " " + y50 + " L" + P[0][0].toFixed(1) + " " + y50 + " Z";
-  el("path", { d: area, fill: green, opacity: 0.32, "clip-path": "url(#" + clipPrefix + "-up)" }, svg);
-  el("path", { d: area, fill: blue, opacity: 0.32, "clip-path": "url(#" + clipPrefix + "-dn)" }, svg);
-  el("path", { d: line(P), fill: "none", stroke: ink, "stroke-width": 2.6, "stroke-linejoin": "round" }, svg);
-  P.forEach((q) => el("circle", { cx: q[0], cy: q[1], r: 3, fill: ink }, svg));
+  el("path", { d: area, fill: chaserColor, opacity: 0.34, "clip-path": "url(#" + clipPrefix + "-up)" }, svg);
+  el("path", { d: area, fill: bowlerColor, opacity: 0.34, "clip-path": "url(#" + clipPrefix + "-dn)" }, svg);
+  el("path", { d: line(P), fill: "none", stroke: chaserColor, "stroke-width": 2.8, "stroke-linejoin": "round" }, svg);
+  P.forEach((q, idx) => {
+    const pVal = seen[idx][3];
+    el("circle", { cx: q[0], cy: q[1], r: 3.2, fill: pVal >= 0.5 ? chaserColor : bowlerColor }, svg);
+  });
 
   let prev = 0;
   seen.forEach((o) => {
@@ -185,18 +261,30 @@ function renderWormSVG(svg, chaser, bowler, allOvers, upto, showRule, reveal, cl
     prev = o[2];
   });
   const c = P[P.length - 1];
-  el("line", { x1: c[0], x2: c[0], y1: G.t, y2: G.H - G.b, stroke: ball, "stroke-width": 1.2, opacity: 0.6 }, svg);
-  el("circle", { cx: c[0], cy: c[1], r: 6.5, fill: ball, stroke: css("--paper"), "stroke-width": 2 }, svg);
+  const lastP = seen[seen.length - 1][3];
+  const activeCol = lastP >= 0.5 ? chaserColor : bowlerColor;
+  el("line", { x1: c[0], x2: c[0], y1: G.t, y2: G.H - G.b, stroke: activeCol, "stroke-width": 1.3, opacity: 0.65 }, svg);
+  el("circle", { cx: c[0], cy: c[1], r: 6.5, fill: activeCol, stroke: css("--paper"), "stroke-width": 2 }, svg);
   svg.setAttribute("aria-label", "Win probability for " + chaser + " after each over, shown up to over " + upto + ".");
 }
 
 function drawWorm() {
   if (!cur) return;
-  renderWormSVG($("worm"), cur.chaser, cur.bowler, cur.overs, overIdx + 1, $("chk-rule").checked, $("chk-reveal").checked, "clip");
+  const [cCol, bCol] = getMatchColors(cur.chaser, cur.bowler);
+  document.documentElement.style.setProperty("--chaser-color", cCol);
+  document.documentElement.style.setProperty("--bowler-color", bCol);
+  const titleEl = $("match-title");
+  titleEl.replaceChildren(
+    makeTeamBadge(cur.chaser, cCol),
+    document.createTextNode(" chasing " + cur.target + " against "),
+    makeTeamBadge(cur.bowler, bCol)
+  );
+  renderWormSVG($("worm"), cur.chaser, cur.bowler, cCol, bCol, cur.overs, overIdx + 1, $("chk-rule").checked, $("chk-reveal").checked, "clip");
 }
 
 function drawState() {
   if (!cur) return;
+  const [cCol, bCol] = getMatchColors(cur.chaser, cur.bowler);
   const o = cur.overs[overIdx], [ov, runs, wk, p, pB] = o;
   const need = cur.target - runs, balls = 120 - 6 * ov, rrr = balls > 0 ? (need / balls) * 6 : 0, crr = runs / ov;
   $("slider-label").textContent = "After over " + ov;
@@ -204,10 +292,15 @@ function drawState() {
   const s = $("state"); s.replaceChildren();
   const add = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; e.textContent = html; s.appendChild(e); return e; };
   add("div", "over", "After " + ov + " of 20 overs: " + runs + "/" + wk);
-  const big = add("div", "big", ""); big.append(pct(p)); const sm = document.createElement("small"); sm.textContent = "%"; big.append(sm);
-  add("div", "big-cap", cur.chaser + " win chance (model)");
-  const sp = document.createElement("div"); sp.className = "split"; sp.setAttribute("role", "img"); sp.setAttribute("aria-label", pct(p) + " percent for the chasing team");
-  const i = document.createElement("i"); i.style.width = (p * 100).toFixed(1) + "%"; sp.appendChild(i); s.appendChild(sp);
+  const big = add("div", "big", "");
+  big.style.color = p >= 0.5 ? cCol : bCol;
+  big.append(pct(p));
+  const sm = document.createElement("small"); sm.textContent = "%"; big.append(sm);
+  const cap = add("div", "big-cap", "");
+  cap.replaceChildren(makeTeamBadge(cur.chaser, cCol), document.createTextNode(" win chance (model)"));
+  const sp = document.createElement("div"); sp.className = "split"; sp.style.background = bCol;
+  sp.setAttribute("role", "img"); sp.setAttribute("aria-label", pct(p) + " percent for the chasing team");
+  const i = document.createElement("i"); i.style.width = (p * 100).toFixed(1) + "%"; i.style.background = cCol; sp.appendChild(i); s.appendChild(sp);
   const dl = document.createElement("dl");
   const row = (k, v) => { const dt = document.createElement("dt"); dt.textContent = k; const dd = document.createElement("dd"); dd.textContent = v; dl.append(dt, dd); };
   row("Needs", need + " off " + balls + " balls");
@@ -682,7 +775,7 @@ function isChaseFinished() {
 
 function updateLiveFormPreview() {
   const hint = $("live-form-hint");
-  if (isChaseFinished()) {
+  if (!LIVE || isChaseFinished()) {
     hint.textContent = "";
     return;
   }
@@ -703,6 +796,11 @@ function recordNextOver() {
 }
 
 function refreshLiveUI() {
+  if (!LIVE) return;
+  const [cCol, bCol] = getMatchColors(LIVE.chaser, LIVE.bowler);
+  document.documentElement.style.setProperty("--live-chaser-color", cCol);
+  document.documentElement.style.setProperty("--live-bowler-color", bCol);
+
   const finished = isChaseFinished();
   const nextOv = LIVE.overs.length + 1;
   $("btn-undo-over").disabled = LIVE.overs.length === 0;
@@ -730,14 +828,16 @@ function refreshLiveUI() {
 function drawLiveWorm() {
   const svg = $("live-worm");
   if (!svg || !LIVE) return;
+  const [cCol, bCol] = getMatchColors(LIVE.chaser, LIVE.bowler);
   const wormOvers = LIVE.overs.map((o) => [o.over, o.runs, o.wkts, o.p, o.pB]);
-  renderWormSVG(svg, LIVE.chaser, LIVE.bowler, wormOvers, wormOvers.length, true, false, "live-clip");
+  renderWormSVG(svg, LIVE.chaser, LIVE.bowler, cCol, bCol, wormOvers, wormOvers.length, true, false, "live-clip");
 }
 
 function drawLiveState() {
   const s = $("live-state");
   if (!s || !LIVE) return;
   s.replaceChildren();
+  const [cCol, bCol] = getMatchColors(LIVE.chaser, LIVE.bowler);
   const add = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; e.textContent = txt; s.appendChild(e); return e; };
 
   const homeLabel = LIVE.home_status === "chaser" ? (LIVE.chaser + " at home")
@@ -748,9 +848,14 @@ function drawLiveState() {
   if (LIVE.overs.length === 0) {
     const draft = buildDraftOverEntry();
     add("div", "over", "Ready to start: " + LIVE.chaser + " chasing " + LIVE.target);
-    const big = add("div", "big", ""); big.append(pct(draft.p)); const sm = document.createElement("small"); sm.textContent = "%"; big.append(sm);
-    add("div", "big-cap", "Preview win chance after Over 1 (click Record Over 1)");
-    const sp = document.createElement("div"); sp.className = "split"; const i = document.createElement("i"); i.style.width = (draft.p * 100).toFixed(1) + "%"; sp.appendChild(i); s.appendChild(sp);
+    const big = add("div", "big", "");
+    big.style.color = draft.p >= 0.5 ? cCol : bCol;
+    big.append(pct(draft.p));
+    const sm = document.createElement("small"); sm.textContent = "%"; big.append(sm);
+    const cap = add("div", "big-cap", "");
+    cap.replaceChildren(makeTeamBadge(LIVE.chaser, cCol), document.createTextNode(" preview after Over 1"));
+    const sp = document.createElement("div"); sp.className = "split"; sp.style.background = bCol;
+    const i = document.createElement("i"); i.style.width = (draft.p * 100).toFixed(1) + "%"; i.style.background = cCol; sp.appendChild(i); s.appendChild(sp);
     const dl = document.createElement("dl");
     const row = (k, v) => { const dt = document.createElement("dt"); dt.textContent = k; const dd = document.createElement("dd"); dd.textContent = v; dl.append(dt, dd); };
     row("Target", LIVE.target + " runs (" + diffStr + ")");
@@ -766,9 +871,14 @@ function drawLiveState() {
   const b1 = LIVE.xi[o.bat1] || { name: "Batter", sr: 125 };
   const b2 = LIVE.xi[o.bat2] || { name: "Batter", sr: 125 };
   add("div", "over", "After " + o.over + " of 20 overs: " + o.runs + "/" + o.wkts);
-  const big = add("div", "big", ""); big.append(pct(o.p)); const sm = document.createElement("small"); sm.textContent = "%"; big.append(sm);
-  add("div", "big-cap", LIVE.chaser + " win chance (full 27-feature model)");
-  const sp = document.createElement("div"); sp.className = "split"; const i = document.createElement("i"); i.style.width = (o.p * 100).toFixed(1) + "%"; sp.appendChild(i); s.appendChild(sp);
+  const big = add("div", "big", "");
+  big.style.color = o.p >= 0.5 ? cCol : bCol;
+  big.append(pct(o.p));
+  const sm = document.createElement("small"); sm.textContent = "%"; big.append(sm);
+  const cap = add("div", "big-cap", "");
+  cap.replaceChildren(makeTeamBadge(LIVE.chaser, cCol), document.createTextNode(" win chance (27-feature model)"));
+  const sp = document.createElement("div"); sp.className = "split"; sp.style.background = bCol;
+  const i = document.createElement("i"); i.style.width = (o.p * 100).toFixed(1) + "%"; i.style.background = cCol; sp.appendChild(i); s.appendChild(sp);
   const dl = document.createElement("dl");
   const row = (k, v) => { const dt = document.createElement("dt"); dt.textContent = k; const dd = document.createElement("dd"); dd.textContent = v; dl.append(dt, dd); };
   row("Needs", o.need + " off " + o.balls + " balls (" + diffStr + ")");
@@ -791,6 +901,7 @@ function drawLiveLog() {
   }
   wrap.hidden = false;
   body.replaceChildren();
+  const [cCol, bCol] = getMatchColors(LIVE.chaser, LIVE.bowler);
   LIVE.overs.slice().reverse().forEach((o) => {
     const tr = document.createElement("tr");
     const b1 = (LIVE.xi[o.bat1] && LIVE.xi[o.bat1].name) || ("#" + (o.bat1 + 1));
@@ -807,7 +918,10 @@ function drawLiveLog() {
     ];
     cells.forEach((c, idx) => {
       const td = document.createElement("td");
-      if (idx === 7) td.style.fontWeight = "700";
+      if (idx === 7) {
+        td.style.fontWeight = "700";
+        td.style.color = o.p >= 0.5 ? cCol : bCol;
+      }
       td.textContent = c;
       tr.appendChild(td);
     });
@@ -823,7 +937,7 @@ function initWhatIf() {
   const t = $("wi-target"); t.min = Math.max(60, tmin); t.max = tmax; t.value = Math.round(DATA.meta.mean_target_fit || 175);
   ["wi-target", "wi-over", "wi-runs", "wi-wkts"].forEach((id) => $(id).addEventListener("input", drawWhatIf));
   $("wi-note").textContent = WI.same_as_final_model
-    ? "This is the final model. Inputs you cannot set here (" + (WI.held_at_average.length ? WI.held_at_average.map(label).join(", ").toLowerCase() : "none") + ") are held at their training average. Use the Live match predictor above to set all 20 features."
+    ? "This is the final model. Inputs you cannot set here (" + (WI.held_at_average.length ? WI.held_at_average.map(label).join(", ").toLowerCase() : "none") + ") are held at their training average. Use the Live match predictor above to set all 27 features."
     : "This panel uses a simpler logistic regression on the ten core features, not the final model, so numbers can differ a little from the explorer.";
   drawWhatIf();
 }
@@ -834,7 +948,7 @@ function wiProb(target, over, runs, wk) {
     runs_so_far: runs, target, wickets_lost: wk, balls_left: balls, current_run_rate: crr, required_run_rate: rrr,
     run_rate_diff: rrr - crr, runs_needed_frac: need / target, resources: balls * hand, runs_needed_per_wicket: need / hand,
   };
-  const p = evalFullModel(v);
+  const p = evalFullModel(v, false);
   return { p, need, balls, rrr: need / balls * 6, crr, ahead: crr >= need / balls * 6 };
 }
 function drawWhatIf() {
@@ -847,9 +961,13 @@ function drawWhatIf() {
   const r = wiProb(target, over, runs, wk);
   const s = $("wi-out"); s.replaceChildren();
   const add = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; e.textContent = txt; s.appendChild(e); return e; };
-  const big = add("div", "big", ""); big.append(pct(r.p)); const sm = document.createElement("small"); sm.textContent = "%"; big.append(sm);
+  const big = add("div", "big", "");
+  big.style.color = r.p >= 0.5 ? css("--outfield") : css("--dusk");
+  big.append(pct(r.p));
+  const sm = document.createElement("small"); sm.textContent = "%"; big.append(sm);
   add("div", "big-cap", "chance the chasing team wins");
-  const sp = document.createElement("div"); sp.className = "split"; const i = document.createElement("i"); i.style.width = (r.p * 100).toFixed(1) + "%"; sp.appendChild(i); s.appendChild(sp);
+  const sp = document.createElement("div"); sp.className = "split"; sp.style.background = css("--dusk");
+  const i = document.createElement("i"); i.style.width = (r.p * 100).toFixed(1) + "%"; i.style.background = css("--outfield"); sp.appendChild(i); s.appendChild(sp);
   const dl = document.createElement("dl");
   const row = (k, v) => { const dt = document.createElement("dt"); dt.textContent = k; const dd = document.createElement("dd"); dd.textContent = v; dl.append(dt, dd); };
   row("Needs", r.need + " off " + r.balls + " balls");
