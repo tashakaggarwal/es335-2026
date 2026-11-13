@@ -5,11 +5,11 @@ One row = state of the chase at the END of an over, using only information
 available at that moment. Label = did the chasing team win the match.
 
 Usage:
-    python parse_cricsheet.py path/to/ipl_json  --out data/overs.csv
+    python scripts/parse_cricsheet.py data/raw --out data/parsed/overs.csv
 
 Outputs:
-    data/overs.csv          one row per (match, completed over) of every kept chase
-    data/match_log.csv      one row per match: kept or the reason it was dropped
+    data/parsed/overs.csv       one row per (match, completed over) of every kept chase
+    data/parsed/match_log.csv   one row per match: kept or the reason it was dropped
 
 Columns added for the "parse" features in ml_parameters.xlsx
 ------------------------------------------------------------
@@ -312,7 +312,7 @@ def past_stats(idx, batter_id, date):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("json_dir", type=Path)
-    ap.add_argument("--out", type=Path, default=Path("data/overs.csv"))
+    ap.add_argument("--out", type=Path, default=Path("data/parsed/overs.csv"))
     args = ap.parse_args()
 
     if not args.json_dir.is_dir():

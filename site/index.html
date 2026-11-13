@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IPL chase win probability</title>
+<meta name="description" content="A model that estimates, over by over, the chance that the chasing team wins an IPL match. Explore real matches, try your own scenario, and see how well it works.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,650;12..96,700;12..96,800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <b>IPL chase win probability</b>
+    <nav aria-label="Sections">
+      <a href="#explorer">Match explorer</a>
+      <a href="#whatif">What if</a>
+      <a href="#results">How well it works</a>
+      <a href="#method">How it was built</a>
+      <a href="#limits">Limits</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap hero">
+  <h1>Who wins the chase?</h1>
+  <p class="lede" id="lede">After every over of a second innings, the model gives the chasing team's chance of winning. Scrub through a real match below and see how the odds move.</p>
+</div>
+
+<section id="explorer" aria-label="Match explorer">
+  <div class="wrap">
+    <p class="intro" id="explorer-intro">Pick a match from the 2025 and 2026 seasons, which the model never saw while it was being built. The line is hidden past the over you choose, so you can guess before you look.</p>
+    <div id="app-error" class="err" hidden></div>
+    <div class="explorer" id="explorer-box">
+      <div class="controls">
+        <label for="match-select">Match</label>
+        <select id="match-select"></select>
+        <button type="button" id="btn-random">Random match</button>
+        <button type="button" id="btn-swing">Biggest swing</button>
+        <label class="check"><input type="checkbox" id="chk-rule" checked> Show the run-rate rule</label>
+        <label class="check"><input type="checkbox" id="chk-reveal"> Show how it ended</label>
+      </div>
+      <div class="match-title" id="match-title"></div>
+      <div class="match-sub" id="match-sub"></div>
+      <div class="stage">
+        <div>
+          <div class="chart-box"><svg id="worm" role="img" aria-label="Win probability by over" viewBox="0 0 760 360"></svg></div>
+          <div class="slider-row">
+            <span id="slider-label">After over 1</span>
+            <input type="range" id="over-slider" min="1" max="19" value="1" aria-label="Overs completed">
+          </div>
+          <p class="hint">Drag the slider or the chart. Red ticks on the bottom edge mark wickets.</p>
+        </div>
+        <div class="state" aria-live="polite" id="state"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="whatif" aria-labelledby="whatif-h">
+  <div class="wrap">
+    <h2 id="whatif-h">What if</h2>
+    <p class="intro">Set up any chase and read off the model's estimate. The calculation runs in your browser from the fitted model's numbers.</p>
+    <div class="whatif">
+      <div id="wi-controls">
+        <div class="field"><div class="row"><label for="wi-target">Target</label><output id="o-target"></output></div><input type="range" id="wi-target"></div>
+        <div class="field"><div class="row"><label for="wi-over">Overs completed</label><output id="o-over"></output></div><input type="range" id="wi-over" min="1" max="19" value="10"></div>
+        <div class="field"><div class="row"><label for="wi-runs">Runs scored</label><output id="o-runs"></output></div><input type="range" id="wi-runs"></div>
+        <div class="field"><div class="row"><label for="wi-wkts">Wickets lost</label><output id="o-wkts"></output></div><input type="range" id="wi-wkts" min="0" max="9" value="3"></div>
+        <p class="note" id="wi-note"></p>
+      </div>
+      <div class="state" aria-live="polite" id="wi-out"></div>
+    </div>
+  </div>
+</section>
+
+<section id="results" aria-labelledby="results-h">
+  <div class="wrap">
+    <h2 id="results-h">How well it works</h2>
+    <p id="results-intro"></p>
+    <div class="table-scroll"><table id="results-table"><caption class="note" style="text-align:left;padding:10px 14px;caption-side:bottom">Lower log loss is better. A coin flip scores 0.693. Intervals come from resampling whole matches.</caption></table></div>
+    <p id="results-read" style="margin-top:18px"></p>
+    <div class="charts">
+      <figure><h3>Is it honest about its odds?</h3><svg id="cal" role="img" viewBox="0 0 380 340" aria-label="Calibration chart"></svg>
+        <figcaption id="cal-cap"></figcaption></figure>
+      <figure><h3>Where is it most useful?</h3><svg id="byover" role="img" viewBox="0 0 380 340" aria-label="Log loss by over"></svg>
+        <figcaption>Average log loss after each over. Early on nobody can know; late on the game is mostly decided.</figcaption></figure>
+      <figure><h3>What it leans on</h3><svg id="imp" role="img" viewBox="0 0 380 340" aria-label="Feature importance"></svg>
+        <figcaption>How much the test log loss gets worse when one input is shuffled. This describes the model; it does not prove cause.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="method" aria-labelledby="method-h">
+  <div class="wrap">
+    <h2 id="method-h">How it was built</h2>
+    <ol class="steps">
+      <li><b>Parse.</b> Ball-by-ball files from Cricsheet became one row per completed over of each chase: score, wickets, balls left, run rates, recent scoring.</li>
+      <li><b>Split by season.</b> Earlier seasons for fitting, 2024 for comparing options, 2025 and 2026 held back for one final test. Rows of a match never end up on both sides.</li>
+      <li><b>Build features.</b> Mostly ratios that do not depend on how high-scoring a season is, plus batter, venue, home and form signals built only from earlier matches.</li>
+      <li><b>Compare against baselines.</b> A constant guess, a guess by over, and the classic rule "win if the current run rate is at least the required rate".</li>
+      <li><b>Try models.</b> Logistic regression, gradient-boosted trees and a small neural network, tuned with cross-validation that keeps each match in one fold.</li>
+      <li><b>Pick once, test once.</b> The final model was chosen on 2024 with a rule fixed in advance, refitted on everything before 2025, and scored on the test seasons a single time.</li>
+    </ol>
+    <h3 style="margin-top:26px">Keeping the future out of the past</h3>
+    <dl class="plain">
+      <dt>Splits follow the calendar</dt><dd>The model is always judged on matches played after the ones it learned from.</dd>
+      <dt>History uses earlier matches only</dt><dd>Batter strike rates, venue records and team form count matches strictly before the match date, and were checked against a slow brute-force version.</dd>
+      <dt>Preprocessing learns from training rows only</dt><dd>Scaling and filling gaps are fitted inside each cross-validation fold.</dd>
+      <dt>The test seasons were scored once</dt><dd>After the model was frozen. If the result had been disappointing, it would still be reported as it is.</dd>
+    </dl>
+  </div>
+</section>
+
+<section id="limits" aria-labelledby="limits-h">
+  <div class="wrap">
+    <h2 id="limits-h">Limits</h2>
+    <ul class="tight" id="limits-list"></ul>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap" id="footer"></div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

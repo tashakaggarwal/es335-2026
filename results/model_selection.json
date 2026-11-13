@@ -1,0 +1,39 @@
+{
+  "model": "logreg",
+  "feature_set": "D +batters+impact",
+  "features": [
+    "runs_so_far",
+    "target",
+    "wickets_lost",
+    "balls_left",
+    "current_run_rate",
+    "required_run_rate",
+    "run_rate_diff",
+    "runs_needed_frac",
+    "resources",
+    "runs_needed_per_wicket",
+    "runs_last_3",
+    "wkts_last_3",
+    "boundaries_last_3",
+    "acceleration",
+    "balls_since_last_wicket",
+    "bat_sr_mean",
+    "bat_balls_sum",
+    "bat_balls_max",
+    "chasing_impact_used",
+    "bowling_impact_used"
+  ],
+  "params": {
+    "C": 0.1
+  },
+  "validation_log_loss": 0.3675022199435953,
+  "selection_rule": "simplest candidate within 0.003 of the best validation log loss",
+  "train_seasons": [
+    2008,
+    2023
+  ],
+  "validation_seasons": [
+    2024,
+    2024
+  ]
+}
