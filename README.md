@@ -46,7 +46,8 @@ data/
   split/                        train.csv, validation.csv, test.csv
 results/                        tables, figures, model_selection.json
 results/final/                  test results (written by notebook 04)
-site/                           static website (index.html, app.js, style.css, data/)
+index.html                      GitHub Pages entry point
+site/                           static website assets (app.js, style.css, data/)
 ```
 
 ## 4. How to reproduce

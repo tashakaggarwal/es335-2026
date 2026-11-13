@@ -37,13 +37,13 @@ const niceDate = (iso) => {
 
 let DATA, MATCHES, cur = null, overIdx = 0;
 
-fetch("data/site_data.json")
+fetch("site/data/site_data.json")
   .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
   .then(init)
   .catch((e) => {
     const box = $("app-error");
     box.hidden = false;
-    box.textContent = "The results file could not be loaded (" + e.message + "). Open this page through GitHub Pages or a local web server (python -m http.server), not by double-clicking the file, and check that data/site_data.json exists.";
+    box.textContent = "The results file could not be loaded (" + e.message + "). Open this page through GitHub Pages or a local web server (python -m http.server), not by double-clicking the file, and check that site/data/site_data.json exists.";
     $("explorer-box").hidden = true;
   });
 
