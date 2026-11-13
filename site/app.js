@@ -68,7 +68,12 @@ function applyTheme(mode, persist) {
     try { localStorage.setItem("es335_theme", mode); } catch (_) {}
   }
   const dark = mode === "dark";
-  $("theme-label").textContent = dark ? "Night match" : "Day match";
+  const btn = $("theme-toggle");
+  if (btn) {
+    const labelText = dark ? "Switch to Day match (light) theme" : "Switch to Night match (dark) theme";
+    btn.title = labelText;
+    btn.setAttribute("aria-label", labelText);
+  }
   if (DATA) {
     drawWorm();
     drawState();
@@ -187,11 +192,9 @@ function wireExplorer() {
 
 function makeTeamBadge(teamName, color) {
   const span = document.createElement("span");
-  span.className = "team-badge";
-  const dot = document.createElement("span");
-  dot.className = "team-dot";
-  dot.style.background = color;
-  span.append(dot, teamName);
+  span.className = "team-name";
+  span.style.color = color;
+  span.textContent = teamName;
   return span;
 }
 
