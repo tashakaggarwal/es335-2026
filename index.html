@@ -26,7 +26,7 @@
       <a href="#method">How it was built</a>
       <a href="#limits">Limits</a>
       <button type="button" id="theme-toggle" class="theme-btn" aria-label="Switch between Day match (light) and Night match (dark) theme">
-        <span id="theme-icon" aria-hidden="true">☀️</span>
+        <span class="theme-dot" aria-hidden="true"></span>
         <span id="theme-label">Day match</span>
       </button>
     </nav>
@@ -72,11 +72,11 @@
 <section id="live" aria-labelledby="live-h">
   <div class="wrap">
     <h2 id="live-h">Live match predictor</h2>
-    <p class="intro">Enter the match context (teams, venue, home status, recent form, target, and Playing 11), then log each completed over to get the live win probability using all 27 engineered features.</p>
+    <p class="intro">Select the teams, venue, target, and Playing 11, then enter the runs, wickets, boundaries, and batters after each over. All derived, momentum, batter, venue, home, and form statistics are computed automatically and shown on the right.</p>
     <datalist id="ipl-batters"></datalist>
 
     <details class="live-setup" id="live-setup-box" open>
-      <summary>1. Match context &amp; Playing 11 setup</summary>
+      <summary>1. Match &amp; Playing 11 setup</summary>
       <div class="setup-body">
         <div class="live-form-grid" style="margin-bottom:14px">
           <div class="form-item">
@@ -87,50 +87,20 @@
             <label for="live-bowler">Bowling team</label>
             <select id="live-bowler"></select>
           </div>
-          <div class="form-item span-2">
+          <div class="form-item">
             <label for="live-venue">Venue (ground)</label>
             <select id="live-venue"></select>
           </div>
           <div class="form-item">
-            <label for="live-venue-rate">Venue chase win rate</label>
-            <input type="number" id="live-venue-rate" step="0.01" min="0.1" max="0.9" value="0.55" title="Historical chase win rate at this ground (shrunk towards league average)">
-          </div>
-          <div class="form-item">
-            <label for="live-home-status">Home ground status</label>
-            <select id="live-home-status">
-              <option value="chaser">Chasing side at home</option>
-              <option value="bowler">Bowling side at home</option>
-              <option value="neutral">Neutral venue</option>
-            </select>
-          </div>
-          <div class="form-item">
-            <label for="live-home-edge">Home record edge</label>
-            <input type="number" id="live-home-edge" step="0.01" min="-0.5" max="0.5" value="0.00" title="Home side's past home win rate minus league home win rate (+ favours chaser, - favours bowler)">
-          </div>
-          <div class="form-item">
             <label for="live-target">Target runs (1st inn + 1)</label>
-            <input type="number" id="live-target" min="50" max="320" value="185">
-          </div>
-          <div class="form-item">
-            <label for="live-season-avg">Season avg target</label>
-            <input type="number" id="live-season-avg" step="0.5" min="100" max="260" value="197.4" title="Average target of earlier matches this season (used for target_vs_season_avg)">
-          </div>
-          <div class="form-item">
-            <label for="live-chaser-wins">Chaser wins (last 5)</label>
-            <input type="number" id="live-chaser-wins" min="0" max="5" step="1" value="3" title="Chasing team's wins in its last 5 matches this season (0 to 5)">
-          </div>
-          <div class="form-item">
-            <label for="live-bowler-wins">Bowler wins (last 5)</label>
-            <input type="number" id="live-bowler-wins" min="0" max="5" step="1" value="2" title="Bowling team's wins in its last 5 matches this season (0 to 5)">
-          </div>
-          <div class="form-item" style="justify-content:flex-end">
             <div class="bat-row">
-              <button type="button" id="btn-load-xi">Load recent XI</button>
-              <button type="button" id="btn-reset-live" class="btn-danger">Reset</button>
+              <input type="number" id="live-target" min="50" max="320" value="185" style="width:96px">
+              <button type="button" id="btn-load-xi">Reset XI</button>
+              <button type="button" id="btn-reset-live" class="btn-danger">Reset overs</button>
             </div>
           </div>
         </div>
-        <p class="note">Select or type any player name below. Historical IPL strike rates (shrunk towards 125) fill in automatically when a known player is chosen, or you can edit them directly. Slot 12 is the optional Impact Player.</p>
+        <p class="note">Select or type the chasing team's Playing 11 (plus optional 12th Impact Player). Past IPL strike rates are looked up automatically.</p>
         <div class="xi-grid" id="live-xi-grid"></div>
       </div>
     </details>
@@ -158,28 +128,19 @@
               <input type="number" id="lo-bounds" min="0" max="7" value="1">
             </div>
             <div class="form-item">
-              <label for="lo-bslw">Balls since last wicket</label>
-              <input type="number" id="lo-bslw" min="0" max="120" value="6" title="Legal balls bowled since the last wicket fell">
+              <label>Impact Player used</label>
+              <div class="impact-row">
+                <label class="check"><input type="checkbox" id="lo-imp-chase"> Chaser</label>
+                <label class="check"><input type="checkbox" id="lo-imp-bowl"> Bowler</label>
+              </div>
             </div>
             <div class="form-item span-2">
               <label for="lo-bat1">Striker at crease (end of over)</label>
-              <div class="bat-row">
-                <select id="lo-bat1"></select>
-                <label class="inline-lbl" for="lo-bat1-balls">Balls faced</label>
-                <input type="number" id="lo-bat1-balls" min="0" max="120" value="3" style="width:78px">
-              </div>
+              <select id="lo-bat1"></select>
             </div>
             <div class="form-item span-2">
               <label for="lo-bat2">Non-striker at crease (end of over)</label>
-              <div class="bat-row">
-                <select id="lo-bat2"></select>
-                <label class="inline-lbl" for="lo-bat2-balls">Balls faced</label>
-                <input type="number" id="lo-bat2-balls" min="0" max="120" value="3" style="width:78px">
-              </div>
-            </div>
-            <div class="form-item span-2 impact-row">
-              <label class="check"><input type="checkbox" id="lo-imp-chase"> Chasing side used Impact Player</label>
-              <label class="check"><input type="checkbox" id="lo-imp-bowl"> Bowling side used Impact Player</label>
+              <select id="lo-bat2"></select>
             </div>
           </div>
           <div class="live-submit-row">

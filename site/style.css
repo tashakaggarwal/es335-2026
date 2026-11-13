@@ -93,10 +93,14 @@ a:hover { color: var(--outfield); }
 .bar nav a { text-decoration: none; color: var(--ink-soft); }
 .bar nav a:hover { color: var(--ink); text-decoration: underline; }
 .theme-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 5px 11px; min-height: 32px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 12px; min-height: 32px; border-radius: 999px;
   font-size: 0.86rem; font-weight: 650; background: var(--pitch); border: 1px solid var(--line);
 }
+.theme-dot {
+  width: 9px; height: 9px; border-radius: 50%; background: #d49000; display: inline-block;
+}
+:root[data-theme="dark"] .theme-dot { background: #5c98e8; }
 
 /* headings & full-width text blocks */
 h1, h2, h3 { font-family: var(--display); line-height: 1.08; letter-spacing: -0.02em; margin: 0; }
@@ -197,14 +201,17 @@ input[type="range"] { flex: 1; min-height: 36px; accent-color: var(--chaser-colo
   gap: 8px 14px; margin-top: 10px;
 }
 .xi-slot {
-  display: grid; grid-template-columns: 32px 1fr 78px; gap: 6px; align-items: center;
-  background: var(--pitch); padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line);
+  display: grid; grid-template-columns: 32px 1fr auto; gap: 8px; align-items: center;
+  background: var(--pitch); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line);
 }
 .xi-slot .slot-num {
   font-family: var(--display); font-weight: 700; font-size: 0.85rem; color: var(--ink-soft); text-align: center;
 }
-.xi-slot input[type="text"], .xi-slot input[type="number"] {
+.xi-slot input[type="text"] {
   min-height: 34px; padding: 4px 8px; font-size: 0.9rem; width: 100%;
+}
+.xi-slot .sr-tag {
+  font-family: var(--display); font-size: 0.8rem; color: var(--ink-soft); white-space: nowrap;
 }
 .live-entry-card {
   background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 16px;
