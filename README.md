@@ -2,7 +2,7 @@
 
 Predicts the probability that the chasing team wins an IPL match, given the state of the chase at the end of each completed over. Built for ES 335 (Machine Learning).
 
-> **Live site:** `<link to GitHub Pages>`  |  **Author:** `<your name>` (individual project)
+> **Live site:** [https://tashakaggarwal.github.io/es335-2026/](https://tashakaggarwal.github.io/es335-2026/)
 
 ## 1. Problem
 
@@ -132,8 +132,7 @@ Figures: `results/calibration_and_by_over.png`, `results/feature_ladder.png`, `r
 ## 10. Honesty notes
 
 - Test seasons were evaluated once, after the model was frozen in notebook 03.
-- `<Add one line if you looked at test-season statistics at any earlier point, for example during profiling.>`
 
 ## 11. Data licence and credits
 
-Ball-by-ball data from [Cricsheet](https://cricsheet.org/) (check their licence and credit requirements before publishing). Code: `<your licence>`.
+Ball-by-ball data from [Cricsheet](https://cricsheet.org/)
