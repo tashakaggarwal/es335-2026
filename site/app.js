@@ -140,25 +140,29 @@ function fillText() {
   $("explorer-intro").textContent = "Pick a match from the " + seasons + " seasons, which the model never saw while it was being built. The line is hidden past the over you choose, so you can guess before you look.";
   const ci = parseCI(fin.diff_ci);
   const clear = ci && ci[1] < 0;
-  $("results-intro").textContent = "On the " + m.test_matches + " matches of " + seasons + " (" + m.test_rows.toLocaleString() + " over-by-over states), the model's log loss is " + f3(fin.log_loss) + ", against " + f3(rule.log_loss) + " for the run-rate rule. Accuracy is " + Math.round(fin.accuracy * 100) + "% versus " + Math.round(rule.accuracy * 100) + "%.";
+  $("results-intro").textContent = "On the " + m.test_matches + " held-out matches of " + seasons + " (" + m.test_rows.toLocaleString() + " over-by-over chase states), the final model (L2 logistic regression on the 11 B +derived features, refitted on 2008–2024) achieves a log loss of " + f3(fin.log_loss) + " and Brier score of " + f3(fin.brier) + ", compared with " + f3(rule.log_loss) + " log loss (" + f3(rule.brier) + " Brier) for the run-rate rule. Accuracy is " + (fin.accuracy * 100).toFixed(1) + "% versus " + (rule.accuracy * 100).toFixed(1) + "%.";
   $("results-read").textContent = (clear
-    ? "The gap to the rule is " + f3(Math.abs(fin.diff)) + " log loss, and its interval (" + fin.diff_ci + ") stays below zero, so the improvement is unlikely to be luck of the draw. "
+    ? "The paired improvement over the run-rate rule is " + f3(Math.abs(fin.diff)) + " log loss, and its 95% match-bootstrap interval (" + fin.diff_ci + ") stays strictly below zero (P(better than B) = 100%), confirming the gain is not luck of the draw. "
     : "The interval for the gap to the rule (" + fin.diff_ci + ") includes zero, so with this few matches the improvement cannot be separated from chance. ")
-    + "Every number here counts each match as one unit when estimating uncertainty, because the overs of one match are not independent.";
+    + "Refitting on 2008–2024 instead of 2008–2023 alone improved test log loss from 0.3884 to 0.3815 because the 2024 high-scoring season helped anchor modern scoring levels.";
   const lim = [
-    "About " + m.test_matches + " test matches is a small sample. Treat differences of a few hundredths of log loss as noise.",
-    "Average first-innings targets were about " + Math.round(m.mean_target_fit) + " in the fitting seasons and about " + Math.round(m.mean_target_test) + " in the test seasons. Scoring keeps rising, so recent games include situations the training data barely covers.",
-    "The model sees only the state of the chase. It knows nothing about the pitch, dew, weather or who bowls the next over.",
-    "Matches decided by DLS, ties and no-results are left out, so the model is not meant for them.",
-    "Home grounds and venue names were mapped by hand and may miss unusual cases such as relocated matches.",
-    "A win probability is not advice for betting or for any decision where money is at stake.",
+    "Effective sample size is matches, not overs: " + m.test_matches + " test matches (~70 per season) produce wide match-bootstrap confidence intervals, so differences of a few thousandths of log loss between close models are indistinguishable from noise.",
+    "Non-stationary scoring drift: average first-innings targets rose from " + Math.round(m.mean_target_fit) + " in 2008–2024 to " + Math.round(m.mean_target_test) + " in 2025–2026. Normalizing via target_vs_venue_par kept out-of-range test rows to 0.8%, but higher overall chase success in 200+ totals causes mild under-confidence (calibration slope 1.19, intercept +0.61).",
+    "Unmodeled conditions: the model sees only scoreboard state. It has no access to pitch wear, evening dew, wind/boundary dimensions, toss strategy, or injuries.",
+    "Why player & venue features were dropped from the final 11-feature benchmark: adding career batter/bowler, venue, home, and form features (groups D–G, 39 features) slightly degraded validation log loss (0.3697 to 0.3866) due to small-sample variance across ~70 validation matches. The 39-feature model is provided in the Live Predictor for interactive exploration.",
+    "Excluded match types: rain-shortened DLS chases (23), ties/super-overs and no-results (25), and reduced-overs games (10) were excluded, so the model applies only to full 20-over second innings.",
+    "Manual entity resolution: 60 raw stadium strings and historical franchise renamings were mapped by hand and may not cover future expansion teams or neutral overseas venues.",
+    "Single-shot test evaluation & responsible use: the 2025–2026 test set was evaluated once after freezing model_selection.json; probabilities are for sports analytics and education, never betting advice.",
   ];
   $("limits-list").replaceChildren(...lim.map((t) => { const li = document.createElement("li"); li.textContent = t; return li; }));
   const f = $("footer"); f.replaceChildren();
   const p = document.createElement("p");
-  p.append("A project for ES 335, Machine Learning" + (m.author ? ", by " + m.author : "") + ". Ball-by-ball data from ");
-  const a = document.createElement("a"); a.href = "https://cricsheet.org/"; a.textContent = "Cricsheet"; p.append(a, ". ");
-  if (m.repo) { const r = document.createElement("a"); r.href = m.repo; r.textContent = "Code and notebooks"; p.append(r, "."); }
+  p.append("Built for ES 335 (Machine Learning)" + (m.author ? " by " + m.author : "") + ". Ball-by-ball data from ");
+  const a = document.createElement("a"); a.href = "https://cricsheet.org/"; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Cricsheet (CC BY 4.0)"; p.append(a, ". ");
+  if (m.repo) {
+    const r = document.createElement("a"); r.href = m.repo; r.target = "_blank"; r.rel = "noopener"; r.textContent = "GitHub Repository (Code, Notebooks, Splits & README)";
+    p.append("Full source & reproducibility: ", r, ".");
+  }
   f.append(p);
 }
 
@@ -186,6 +190,19 @@ function wireExplorer() {
   $("chk-rule").addEventListener("change", drawWorm);
   $("chk-reveal").addEventListener("change", () => { drawWorm(); drawState(); });
   $("over-slider").addEventListener("input", (e) => { overIdx = +e.target.value - 1; drawWorm(); drawState(); });
+  document.querySelectorAll("[data-jump-match]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const mid = btn.getAttribute("data-jump-match");
+      if (MATCHES.some((m) => m.id === mid)) {
+        pick(mid, true);
+        $("chk-reveal").checked = true;
+        drawWorm();
+        drawState();
+        const expSec = $("explorer");
+        if (expSec) expSec.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  });
   const svg = $("worm");
   const scrub = (ev) => {
     const r = svg.getBoundingClientRect(); const x = ((ev.clientX - r.left) / r.width) * 760;
@@ -1240,16 +1257,16 @@ function drawResults() {
   const t = $("results-table");
   const cap = t.querySelector("caption"); t.replaceChildren(cap);
   const head = document.createElement("thead"), hr = document.createElement("tr");
-  ["Model", "Log loss", "95% interval", "Accuracy", "Gap to rule (95% interval)"].forEach((h) => { const th = document.createElement("th"); th.scope = "col"; th.textContent = h; hr.appendChild(th); });
+  ["Model", "Log loss", "95% interval", "Brier score", "Accuracy", "Gap to rule (95% interval)"].forEach((h) => { const th = document.createElement("th"); th.scope = "col"; th.textContent = h; hr.appendChild(th); });
   head.appendChild(hr); t.insertBefore(head, cap.nextSibling);
   const body = document.createElement("tbody");
   DATA.results.forEach((r) => {
     const tr = document.createElement("tr"); if (/^FINAL/.test(r.name)) tr.className = "final";
-    const MODELS = { logreg: "logistic regression", hgb: "gradient-boosted trees" };
+    const MODELS = { logreg: "logistic regression (11 feats, B +derived)", hgb: "gradient-boosted trees" };
     const name = /^FINAL/.test(r.name) ? "Final model: " + (MODELS[DATA.meta.model] || DATA.meta.model)
-      : /^\(ref\)/.test(r.name) ? "Same model, fitted on the training seasons only"
-      : /^A2/.test(r.name) ? "Guess by over" : /^A\b/.test(r.name) ? "Constant guess" : /^B\b/.test(r.name) ? "Run-rate rule" : r.name;
-    [name, f3(r.log_loss), r.ci, Math.round(r.accuracy * 100) + "%", r.diff == null ? "-" : (r.diff > 0 ? "+" : "") + f3(r.diff) + " " + r.diff_ci].forEach((v) => { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); });
+      : /^\(ref\)/.test(r.name) ? "Ref: same model, fitted on 2008–2023 train only"
+      : /^A2/.test(r.name) ? "A2: Empirical win rate by over" : /^A\b/.test(r.name) ? "A: Constant guess (train+val win rate)" : /^B\b/.test(r.name) ? "B: Run-rate rule (CRR >= RRR)" : r.name;
+    [name, f3(r.log_loss), r.ci, r.brier != null ? r.brier.toFixed(4) : "-", (r.accuracy * 100).toFixed(2) + "%", r.diff == null ? "-" : (r.diff > 0 ? "+" : "") + f3(r.diff) + " " + r.diff_ci].forEach((v) => { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); });
     body.appendChild(tr);
   });
   t.insertBefore(body, cap);
