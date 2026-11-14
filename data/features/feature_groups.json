@@ -1,7 +1,7 @@
 {
   "core": [
     "runs_so_far",
-    "target",
+    "target_vs_venue_par",
     "wickets_lost",
     "balls_left",
     "current_run_rate",
@@ -10,8 +10,14 @@
   "derived": [
     "run_rate_diff",
     "runs_needed_frac",
-    "resources",
+    "dls_resources",
+    "par_score_diff",
     "runs_needed_per_wicket"
+  ],
+  "phase": [
+    "is_powerplay",
+    "is_death",
+    "powerplay_balls_left"
   ],
   "momentum": [
     "runs_last_3",
@@ -22,8 +28,17 @@
   ],
   "batters": [
     "bat_sr_mean",
-    "bat_balls_sum",
-    "bat_balls_max"
+    "bat_bpd_mean",
+    "bat_balls_max",
+    "bat_runs_sum",
+    "settled_sr_interaction",
+    "rem_bat_quality",
+    "rem_bat_sr"
+  ],
+  "bowling": [
+    "bowl_rem_econ",
+    "bowl_rem_wkt_rate",
+    "best_bowler_overs_left"
   ],
   "impact": [
     "chasing_impact_used",
@@ -31,6 +46,7 @@
   ],
   "history": [
     "target_vs_season_avg",
+    "target_vs_recent_par",
     "venue_chase_rate"
   ],
   "home": [

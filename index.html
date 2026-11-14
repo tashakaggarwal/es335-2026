@@ -249,9 +249,9 @@
         <ol class="steps">
           <li><b>Ball-by-ball parsing.</b> Cricsheet JSON files are aggregated into one row per completed over of each regular second innings: score, wickets, balls remaining, run rates, and recent boundaries.</li>
           <li><b>Temporal split by season.</b> Seasons 2008–2023 form the training set, 2024 is used for model selection, and 2025–2026 are held back for a single final test evaluation.</li>
-          <li><b>Feature engineering.</b> Scale-free ratios resilient to scoring inflation, paired with shrunk historical batter strike rates, venue chase records, home-ground edge, and 5-match team form.</li>
+          <li><b>Feature engineering.</b> Empirical DLS exponential resource curves and par-score differences fitted on training first innings, venue/rolling par targets, phase indicators, settled-batter interactions, dugout batting depth, remaining bowling attack economy, venue chase records, home edge, and 5-match team form.</li>
           <li><b>Baseline benchmarks.</b> Evaluated against a constant training win rate, an over-by-over empirical rate, and the run-rate rule (current rate at least required rate).</li>
-          <li><b>Grouped cross-validation.</b> Logistic regression, histogram gradient-boosted trees, and an MLP tuned via 5-fold GroupKFold (grouped by match ID).</li>
+          <li><b>Grouped cross-validation &amp; recency weights.</b> Logistic regression, histogram gradient-boosted trees, and an MLP tuned via 5-fold GroupKFold (grouped by match ID) with exponential recency weighting across seasons.</li>
           <li><b>Single-shot test evaluation.</b> The simplest candidate within 0.003 validation log loss of the best was refitted on 2008–2024 and evaluated once on 2025–2026.</li>
         </ol>
       </div>
