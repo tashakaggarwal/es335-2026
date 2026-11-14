@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>IPL Chase Win Probability</title>
+<title>Match Winner Predictor</title>
 <meta name="description" content="Over-by-over second-innings win probability model for the Indian Premier League. Explore test-season chases, run live match predictions, simulate scenarios, and inspect model evaluation metrics.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,7 +15,7 @@
 <header class="bar">
   <div class="wrap">
     <div class="brand">
-      <b>IPL Chase Win Probability</b>
+      <b>Match Winner Predictor</b>
     </div>
     <nav aria-label="Sections">
       <a href="#explorer">Match Explorer</a>
@@ -47,7 +47,7 @@
 <main>
 <div class="wrap hero">
   <span class="kicker">ES 335 Machine Learning — Indian Premier League (2008–2026)</span>
-  <h1>Second-Innings Chase Win Probability</h1>
+  <h1>IPL Chase Win Probability</h1>
   <p class="lede" id="lede">Calibrated over-by-over win probability estimates for IPL run chases. Inspect held-out 2025–2026 matches, track a live chase with a custom Playing 11, or simulate custom match states.</p>
 </div>
 
@@ -92,7 +92,6 @@
       <h2 id="live-h">Live Match Predictor</h2>
       <p class="intro">Select the teams, venue, target, and Playing 11, then log the runs, wickets, boundaries, and batters after each completed over. All derived, momentum, batter, venue, home, and form statistics are computed automatically on the right.</p>
     </div>
-    <datalist id="ipl-batters"></datalist>
 
     <details class="live-setup" id="live-setup-box" open>
       <summary>1. Match &amp; Playing 11 Configuration</summary>
@@ -114,13 +113,22 @@
             <label for="live-target">Target runs (1st inn + 1)</label>
             <div class="bat-row">
               <input type="number" id="live-target" min="50" max="320" value="185" style="width:96px">
-              <button type="button" id="btn-load-xi">Reset XI</button>
+              <button type="button" id="btn-load-xi">Reset squads</button>
               <button type="button" id="btn-reset-live" class="btn-danger">Reset overs</button>
             </div>
           </div>
         </div>
-        <p class="note">Select or type the chasing team's Playing 11 (plus optional 12th Impact Player). Past IPL strike rates are looked up automatically.</p>
-        <div class="xi-grid" id="live-xi-grid"></div>
+        <p class="note">Select the Playing 11 (plus optional 12th Impact Player) for both teams. Each dropdown lists only the squad players of the selected team with their full names; historical batting strike rates and bowling economies are looked up automatically.</p>
+        <div class="squads-split">
+          <div>
+            <h4 class="squad-heading" id="xi-chaser-label">Chasing Team Playing 11</h4>
+            <div class="xi-grid" id="live-xi-grid"></div>
+          </div>
+          <div>
+            <h4 class="squad-heading" id="xi-bowler-label">Bowling Team Playing 11</h4>
+            <div class="xi-grid" id="live-bowl-xi-grid"></div>
+          </div>
+        </div>
       </div>
     </details>
 
@@ -153,13 +161,17 @@
                 <label class="check"><input type="checkbox" id="lo-imp-bowl"> Bowler</label>
               </div>
             </div>
-            <div class="form-item span-2">
-              <label for="lo-bat1">Striker at crease (end of over)</label>
+            <div class="form-item">
+              <label for="lo-bat1">Striker (end of over)</label>
               <select id="lo-bat1"></select>
             </div>
-            <div class="form-item span-2">
-              <label for="lo-bat2">Non-striker at crease (end of over)</label>
+            <div class="form-item">
+              <label for="lo-bat2">Non-striker (end of over)</label>
               <select id="lo-bat2"></select>
+            </div>
+            <div class="form-item span-2">
+              <label for="lo-bowler">Bowler (this over)</label>
+              <select id="lo-bowler"></select>
             </div>
           </div>
           <div class="live-submit-row">
@@ -182,6 +194,7 @@
         <thead>
           <tr>
             <th scope="col">Over</th>
+            <th scope="col">Bowler</th>
             <th scope="col">This over</th>
             <th scope="col">Score</th>
             <th scope="col">Batters at crease</th>

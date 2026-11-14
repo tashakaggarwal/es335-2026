@@ -272,22 +272,31 @@ input[type="range"] { flex: 1; min-height: 34px; accent-color: var(--chaser-colo
   user-select: none; padding: 2px 0;
 }
 .setup-body { margin-top: 14px; }
+.squads-split {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 12px;
+}
+@media (max-width: 860px) {
+  .squads-split { grid-template-columns: 1fr; gap: 16px; }
+}
+.squad-heading {
+  font-family: var(--display); font-weight: 700; font-size: 0.96rem; margin: 0 0 8px;
+}
 .xi-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 8px 14px; margin-top: 10px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 7px 10px;
 }
 .xi-slot {
-  display: grid; grid-template-columns: 32px 1fr auto; gap: 8px; align-items: center;
-  background: var(--pitch); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line);
+  display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 6px; align-items: center;
+  background: var(--pitch); padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line);
 }
 .xi-slot .slot-num {
-  font-family: var(--display); font-weight: 700; font-size: 0.84rem; color: var(--ink-soft); text-align: center;
+  font-family: var(--display); font-weight: 700; font-size: 0.82rem; color: var(--ink-soft); text-align: center;
 }
-.xi-slot input[type="text"] {
-  min-height: 34px; padding: 4px 8px; font-size: 0.9rem; width: 100%; background: var(--paper);
+.xi-slot input[type="text"], .xi-slot select {
+  min-height: 32px; padding: 3px 6px; font-size: 0.88rem; width: 100%; background: var(--paper);
 }
 .xi-slot .sr-tag {
-  font-family: var(--display); font-size: 0.8rem; color: var(--ink-soft); white-space: nowrap;
+  font-family: var(--display); font-size: 0.78rem; color: var(--ink-soft); white-space: nowrap;
 }
 .live-entry-card {
   background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 18px;

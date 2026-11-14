@@ -322,8 +322,8 @@ function drawState() {
   if (reveal) add("div", "result", cur.chaser + (cur.won ? " won the chase." : " lost the chase.") + (cur.won === (p >= 0.5) ? " The model was leaning the right way at this point." : " The model was leaning the wrong way at this point."));
 }
 
-/* ---------- live match predictor (full 27-feature model, raw inputs only) ---------- */
-const LIVE_STORAGE_KEY = "es335_live_match_v3";
+/* ---------- live match predictor (full 39-feature model, raw inputs only) ---------- */
+const LIVE_STORAGE_KEY = "es335_live_match_v4";
 let LIVE = null;
 
 function evalFullModel(featMap, useLive27 = false) {
@@ -381,6 +381,7 @@ function getContextStats(liveState) {
 function computeOverPrediction(oversSoFar, overEntry, liveState) {
   const target = liveState.target;
   const xi = liveState.xi;
+  const bowlXi = liveState.bowl_xi || [];
   const ctx = getContextStats(liveState);
   const ov = overEntry.over;
   const runs = overEntry.runs;
@@ -424,7 +425,9 @@ function computeOverPrediction(oversSoFar, overEntry, liveState) {
   const b2 = Number(overEntry.bat2_balls) || 0;
   const bat_balls_sum = b1 + b2;
   const bat_balls_max = Math.max(b1, b2);
-  const bat_runs_sum = Math.min(runs, Math.round((b1 * sr1 + b2 * sr2) / 100));
+  const r1 = overEntry.bat1_runs != null ? Number(overEntry.bat1_runs) : Math.round((b1 * sr1) / 100);
+  const r2 = overEntry.bat2_runs != null ? Number(overEntry.bat2_runs) : Math.round((b2 * sr2) / 100);
+  const bat_runs_sum = Math.min(runs, Math.round(r1 + r2));
   const settled_sr_interaction = (bat_balls_max * bat_sr_mean) / 100;
 
   const seenIdx = new Set([overEntry.bat1, overEntry.bat2]);
@@ -447,9 +450,54 @@ function computeOverPrediction(oversSoFar, overEntry, liveState) {
   const rem_bat_sr = top3.length ? top3.reduce((s, x) => s + x.sr, 0) / top3.length : 110.0;
 
   const remOvers = Math.max(0, 20 - ov);
-  const best_bowler_overs_left = Math.min(8, Math.round(remOvers * 0.42 * 10) / 10);
-  const bowl_rem_econ = ctx.bowl_rem_econ;
-  const bowl_rem_wkt_rate = ctx.bowl_rem_wkt_rate;
+  const oversByBowler = overEntry.oversByBowler || new Array(12).fill(0);
+  const maxBowlIdx = (overEntry.imp_bowl || overEntry.bowler === 11 || (oversByBowler[11] || 0) > 0) ? 12 : 11;
+  const activeBowlers = [];
+  for (let idx = 0; idx < maxBowlIdx; idx++) {
+    if (bowlXi[idx]) {
+      const bSlot = bowlXi[idx];
+      const bowled = oversByBowler[idx] || 0;
+      const quotaLeft = Math.max(0, 4 - bowled);
+      activeBowlers.push({
+        idx,
+        name: bSlot.name,
+        econ: Number(bSlot.econ) || 8.3,
+        wkt_rate: Number(bSlot.wkt_rate) || 0.052,
+        balls: Number(bSlot.balls) || 0,
+        bowled,
+        quotaLeft,
+      });
+    }
+  }
+  let best_bowler_overs_left = Math.min(8, Math.round(remOvers * 0.42 * 10) / 10);
+  let bowl_rem_econ = ctx.bowl_rem_econ;
+  let bowl_rem_wkt_rate = ctx.bowl_rem_wkt_rate;
+  if (activeBowlers.length > 0) {
+    const mainPool = activeBowlers.filter((b) => b.balls >= 60 || b.bowled > 0);
+    const rankPool = (mainPool.length >= 2 ? mainPool : activeBowlers).slice().sort((a, b) => a.econ - b.econ);
+    const top2 = rankPool.slice(0, 2);
+    best_bowler_overs_left = Math.min(remOvers, top2.reduce((s, b) => s + b.quotaLeft, 0));
+
+    if (remOvers > 0) {
+      const sortedAll = activeBowlers.slice().sort((a, b) => a.econ - b.econ);
+      let needOv = remOvers, wEcon = 0, wWkt = 0;
+      for (const b of sortedAll) {
+        if (needOv <= 0) break;
+        const take = Math.min(needOv, b.quotaLeft);
+        if (take > 0) {
+          wEcon += take * b.econ;
+          wWkt += take * b.wkt_rate;
+          needOv -= take;
+        }
+      }
+      if (needOv > 0) {
+        wEcon += needOv * ctx.bowl_rem_econ;
+        wWkt += needOv * ctx.bowl_rem_wkt_rate;
+      }
+      bowl_rem_econ = wEcon / remOvers;
+      bowl_rem_wkt_rate = wWkt / remOvers;
+    }
+  }
 
   const feats = {
     runs_so_far: runs,
@@ -512,14 +560,36 @@ function computeOverPrediction(oversSoFar, overEntry, liveState) {
 function defaultTeamXI(teamName) {
   const rosters = (DATA.whatif && DATA.whatif.rosters) || {};
   const batters = (DATA.whatif && DATA.whatif.batters) || {};
+  const battersBpd = (DATA.whatif && DATA.whatif.batters_bpd) || {};
+  const battersAvg = (DATA.whatif && DATA.whatif.batters_avg) || {};
   const list = rosters[teamName] || [];
   const xi = [];
   for (let i = 0; i < 12; i++) {
     const name = list[i] || ("Batter " + (i + 1));
     const sr = name in batters ? batters[name] : 125.0;
-    xi.push({ name, sr });
+    const bpd = name in battersBpd ? battersBpd[name] : 18.0;
+    const avg = name in battersAvg ? battersAvg[name] : 22.5;
+    xi.push({ name, sr, bpd, avg });
   }
   return xi;
+}
+
+function defaultBowlingXI(teamName) {
+  const bowlRosters = (DATA.whatif && DATA.whatif.bowl_rosters) || {};
+  const rosters = (DATA.whatif && DATA.whatif.rosters) || {};
+  const bowlersEcon = (DATA.whatif && DATA.whatif.bowlers_econ) || {};
+  const bowlersWkt = (DATA.whatif && DATA.whatif.bowlers_wkt) || {};
+  const bowlersBalls = (DATA.whatif && DATA.whatif.bowlers_balls) || {};
+  const list = bowlRosters[teamName] || rosters[teamName] || [];
+  const bxi = [];
+  for (let i = 0; i < 12; i++) {
+    const name = list[i] || ("Bowler " + (i + 1));
+    const econ = name in bowlersEcon ? bowlersEcon[name] : 8.3;
+    const wkt_rate = name in bowlersWkt ? bowlersWkt[name] : 0.052;
+    const balls = name in bowlersBalls ? bowlersBalls[name] : 0;
+    bxi.push({ name, econ, wkt_rate, balls });
+  }
+  return bxi;
 }
 
 function detectHomeStatus(venue, chaser, bowler) {
@@ -543,27 +613,43 @@ function saveLiveState() {
 function recomputeAllLiveOvers() {
   let cumRuns = 0, cumWkts = 0, bslw = 0;
   const ballsByBatter = new Array(12).fill(0);
+  const runsByBatter = new Array(12).fill(0);
+  const oversByBowler = new Array(12).fill(0);
   const updated = [];
   for (const o of LIVE.overs) {
     cumRuns += o.ov_runs;
     cumWkts = clamp(cumWkts + o.ov_wkts, 0, 10);
+    const sr1 = (LIVE.xi[o.bat1] && Number(LIVE.xi[o.bat1].sr)) || 125.0;
+    const sr2 = (LIVE.xi[o.bat2] && Number(LIVE.xi[o.bat2].sr)) || 125.0;
+    const w1 = sr1 / Math.max(1, sr1 + sr2);
     if (o.ov_wkts === 0) {
       bslw += 6;
       ballsByBatter[o.bat1] = (ballsByBatter[o.bat1] || 0) + 3;
       ballsByBatter[o.bat2] = (ballsByBatter[o.bat2] || 0) + 3;
+      runsByBatter[o.bat1] = (runsByBatter[o.bat1] || 0) + o.ov_runs * w1;
+      runsByBatter[o.bat2] = (runsByBatter[o.bat2] || 0) + o.ov_runs * (1 - w1);
     } else {
       bslw = 3;
       ballsByBatter[o.bat1] = (ballsByBatter[o.bat1] || 0) + (o.ov_wkts === 1 ? 4 : 2);
       ballsByBatter[o.bat2] = (ballsByBatter[o.bat2] || 0) + 2;
+      runsByBatter[o.bat1] = (runsByBatter[o.bat1] || 0) + o.ov_runs * 0.65;
+      runsByBatter[o.bat2] = (runsByBatter[o.bat2] || 0) + o.ov_runs * 0.35;
     }
+    const bowlerIdx = clamp(Number(o.bowler) || 0, 0, 11);
+    oversByBowler[bowlerIdx] = (oversByBowler[bowlerIdx] || 0) + 1;
     const entry = {
       ...o,
+      bowler: bowlerIdx,
       runs: cumRuns,
       wkts: cumWkts,
       bslw,
       bat1_balls: ballsByBatter[o.bat1] || 0,
       bat2_balls: ballsByBatter[o.bat2] || 0,
+      bat1_runs: runsByBatter[o.bat1] || 0,
+      bat2_runs: runsByBatter[o.bat2] || 0,
+      oversByBowler: oversByBowler.slice(),
       imp_chase: (o.imp_chase || o.bat1 === 11 || o.bat2 === 11) ? 1 : 0,
+      imp_bowl: (o.imp_bowl || bowlerIdx === 11) ? 1 : 0,
     };
     const res = computeOverPrediction(updated, entry, LIVE);
     Object.assign(entry, res);
@@ -571,7 +657,10 @@ function recomputeAllLiveOvers() {
   }
   LIVE.overs = updated;
   LIVE._ballsByBatter = ballsByBatter;
+  LIVE._runsByBatter = runsByBatter;
+  LIVE._oversByBowler = oversByBowler;
   LIVE._bslw = bslw;
+  syncCreaseDropdowns();
   saveLiveState();
 }
 
@@ -583,20 +672,11 @@ function syncContextControls() {
 }
 
 function initLive() {
-  const batters = (DATA.whatif && DATA.whatif.batters) || {};
   const rosters = (DATA.whatif && DATA.whatif.rosters) || {};
   const venues = (DATA.whatif && DATA.whatif.venues) || {};
   const homeVenues = (DATA.whatif && DATA.whatif.team_home_venues) || {};
   const teams = Object.keys(rosters).sort();
   const venueNames = Object.keys(venues).sort();
-
-  const dl = $("ipl-batters");
-  dl.replaceChildren();
-  Object.keys(batters).sort().forEach((name) => {
-    const opt = document.createElement("option");
-    opt.value = name;
-    dl.appendChild(opt);
-  });
 
   const selC = $("live-chaser"), selB = $("live-bowler"), selV = $("live-venue");
   selC.replaceChildren(); selB.replaceChildren(); selV.replaceChildren();
@@ -613,7 +693,7 @@ function initLive() {
 
   let loaded = null;
   try { loaded = JSON.parse(localStorage.getItem(LIVE_STORAGE_KEY) || "null"); } catch (_) {}
-  if (loaded && loaded.xi && Array.isArray(loaded.xi) && loaded.xi.length === 12 && loaded.venue) {
+  if (loaded && loaded.xi && Array.isArray(loaded.xi) && loaded.xi.length === 12 && loaded.bowl_xi && Array.isArray(loaded.bowl_xi) && loaded.bowl_xi.length === 12 && loaded.venue) {
     LIVE = loaded;
   } else {
     const defC = teams.includes("Royal Challengers Bengaluru") ? "Royal Challengers Bengaluru" : (teams[0] || "Chasing Team");
@@ -625,29 +705,28 @@ function initLive() {
       venue: defV,
       target: 185,
       xi: defaultTeamXI(defC),
+      bowl_xi: defaultBowlingXI(defB),
       overs: [],
     };
   }
 
   syncContextControls();
   renderXIGrid();
-  syncCreaseDropdowns();
   recomputeAllLiveOvers();
   prepareNextOverForm();
   refreshLiveUI();
 
   selC.addEventListener("change", () => {
     LIVE.chaser = selC.value;
-    if (LIVE.overs.length === 0) {
-      LIVE.xi = defaultTeamXI(LIVE.chaser);
-      renderXIGrid();
-      syncCreaseDropdowns();
-    }
+    LIVE.xi = defaultTeamXI(LIVE.chaser);
+    renderXIGrid();
     recomputeAllLiveOvers();
     refreshLiveUI();
   });
   selB.addEventListener("change", () => {
     LIVE.bowler = selB.value;
+    LIVE.bowl_xi = defaultBowlingXI(LIVE.bowler);
+    renderXIGrid();
     recomputeAllLiveOvers();
     refreshLiveUI();
   });
@@ -663,8 +742,8 @@ function initLive() {
   });
   $("btn-load-xi").addEventListener("click", () => {
     LIVE.xi = defaultTeamXI(LIVE.chaser);
+    LIVE.bowl_xi = defaultBowlingXI(LIVE.bowler);
     renderXIGrid();
-    syncCreaseDropdowns();
     recomputeAllLiveOvers();
     refreshLiveUI();
   });
@@ -675,8 +754,9 @@ function initLive() {
     refreshLiveUI();
   });
   $("lo-wkts").addEventListener("change", onOverWicketsChanged);
-  ["lo-runs", "lo-wkts", "lo-bounds", "lo-bat1", "lo-bat2", "lo-imp-chase", "lo-imp-bowl"].forEach((id) => {
-    $(id).addEventListener("input", updateLiveFormPreview);
+  ["lo-runs", "lo-wkts", "lo-bounds", "lo-bat1", "lo-bat2", "lo-bowler", "lo-imp-chase", "lo-imp-bowl"].forEach((id) => {
+    const elNode = $(id);
+    if (elNode) elNode.addEventListener("input", updateLiveFormPreview);
   });
   $("btn-add-over").addEventListener("click", recordNextOver);
   $("btn-undo-over").addEventListener("click", () => {
@@ -690,6 +770,25 @@ function initLive() {
 
 function renderXIGrid() {
   const batters = (DATA.whatif && DATA.whatif.batters) || {};
+  const battersBpd = (DATA.whatif && DATA.whatif.batters_bpd) || {};
+  const battersAvg = (DATA.whatif && DATA.whatif.batters_avg) || {};
+  const bowlersEcon = (DATA.whatif && DATA.whatif.bowlers_econ) || {};
+  const bowlersWkt = (DATA.whatif && DATA.whatif.bowlers_wkt) || {};
+  const bowlersBalls = (DATA.whatif && DATA.whatif.bowlers_balls) || {};
+  const teamSquads = (DATA.whatif && DATA.whatif.team_squads) || {};
+  const [cCol, bCol] = getMatchColors(LIVE.chaser, LIVE.bowler);
+
+  const cLbl = $("xi-chaser-label"), bLbl = $("xi-bowler-label");
+  if (cLbl) {
+    cLbl.textContent = LIVE.chaser + " — Batting Playing 11";
+    cLbl.style.color = cCol;
+  }
+  if (bLbl) {
+    bLbl.textContent = LIVE.bowler + " — Bowling Playing 11";
+    bLbl.style.color = bCol;
+  }
+
+  const chaserPool = (teamSquads[LIVE.chaser] || LIVE.xi.map((x) => x.name)).slice();
   const grid = $("live-xi-grid");
   grid.replaceChildren();
   LIVE.xi.forEach((slot, idx) => {
@@ -700,56 +799,124 @@ function renderXIGrid() {
     num.textContent = idx < 11 ? "#" + (idx + 1) : "IMP";
     num.title = idx < 11 ? "Batting position " + (idx + 1) : "12th man / Impact Player substitute";
 
-    const nameIn = document.createElement("input");
-    nameIn.type = "text";
-    nameIn.setAttribute("list", "ipl-batters");
-    nameIn.value = slot.name;
-    nameIn.placeholder = idx < 11 ? "Batter " + (idx + 1) : "Impact Player";
-    nameIn.setAttribute("aria-label", (idx < 11 ? "Batter " + (idx + 1) : "Impact Player") + " name");
+    const sel = document.createElement("select");
+    sel.setAttribute("aria-label", (idx < 11 ? "Chasing Batter " + (idx + 1) : "Chasing Impact Player"));
+    const opts = chaserPool.includes(slot.name) ? chaserPool : [slot.name, ...chaserPool];
+    opts.forEach((pName) => {
+      const o = document.createElement("option");
+      o.value = pName;
+      o.textContent = pName;
+      sel.appendChild(o);
+    });
+    sel.value = slot.name;
 
     const srTag = document.createElement("span");
     srTag.className = "sr-tag";
     srTag.textContent = "SR " + Number(slot.sr).toFixed(1);
 
-    nameIn.addEventListener("input", () => {
-      slot.name = nameIn.value.trim() || ("Batter " + (idx + 1));
+    sel.addEventListener("change", () => {
+      slot.name = sel.value;
       slot.sr = slot.name in batters ? batters[slot.name] : 125.0;
+      slot.bpd = slot.name in battersBpd ? battersBpd[slot.name] : 18.0;
+      slot.avg = slot.name in battersAvg ? battersAvg[slot.name] : 22.5;
       srTag.textContent = "SR " + Number(slot.sr).toFixed(1);
-      syncCreaseDropdowns();
       recomputeAllLiveOvers();
       refreshLiveUI();
     });
 
-    row.append(num, nameIn, srTag);
+    row.append(num, sel, srTag);
     grid.appendChild(row);
   });
+
+  const bowlerPool = (teamSquads[LIVE.bowler] || (LIVE.bowl_xi || []).map((x) => x.name)).slice();
+  const bGrid = $("live-bowl-xi-grid");
+  if (bGrid) {
+    bGrid.replaceChildren();
+    if (!LIVE.bowl_xi || LIVE.bowl_xi.length !== 12) {
+      LIVE.bowl_xi = defaultBowlingXI(LIVE.bowler);
+    }
+    LIVE.bowl_xi.forEach((slot, idx) => {
+      const row = document.createElement("div");
+      row.className = "xi-slot";
+      const num = document.createElement("span");
+      num.className = "slot-num";
+      num.textContent = idx < 11 ? "#" + (idx + 1) : "IMP";
+      num.title = idx < 11 ? "Bowling squad slot " + (idx + 1) : "12th man / Impact Player substitute";
+
+      const sel = document.createElement("select");
+      sel.setAttribute("aria-label", (idx < 11 ? "Bowling Player " + (idx + 1) : "Bowling Impact Player"));
+      const opts = bowlerPool.includes(slot.name) ? bowlerPool : [slot.name, ...bowlerPool];
+      opts.forEach((pName) => {
+        const o = document.createElement("option");
+        o.value = pName;
+        o.textContent = pName;
+        sel.appendChild(o);
+      });
+      sel.value = slot.name;
+
+      const econTag = document.createElement("span");
+      econTag.className = "sr-tag";
+      econTag.textContent = "Econ " + Number(slot.econ).toFixed(2);
+
+      sel.addEventListener("change", () => {
+        slot.name = sel.value;
+        slot.econ = slot.name in bowlersEcon ? bowlersEcon[slot.name] : 8.3;
+        slot.wkt_rate = slot.name in bowlersWkt ? bowlersWkt[slot.name] : 0.052;
+        slot.balls = slot.name in bowlersBalls ? bowlersBalls[slot.name] : 0;
+        econTag.textContent = "Econ " + Number(slot.econ).toFixed(2);
+        recomputeAllLiveOvers();
+        refreshLiveUI();
+      });
+
+      row.append(num, sel, econTag);
+      bGrid.appendChild(row);
+    });
+  }
 }
 
 function syncCreaseDropdowns() {
-  const b1 = $("lo-bat1"), b2 = $("lo-bat2");
-  const v1 = b1.value !== "" ? +b1.value : 0;
-  const v2 = b2.value !== "" ? +b2.value : 1;
+  const b1 = $("lo-bat1"), b2 = $("lo-bat2"), bw = $("lo-bowler");
+  const v1 = b1 && b1.value !== "" ? +b1.value : 0;
+  const v2 = b2 && b2.value !== "" ? +b2.value : 1;
+  const vw = bw && bw.value !== "" ? +bw.value : 0;
   [b1, b2].forEach((sel) => {
+    if (!sel) return;
     sel.replaceChildren();
     LIVE.xi.forEach((slot, idx) => {
       const o = document.createElement("option");
       o.value = idx;
-      o.textContent = (idx < 11 ? "#" + (idx + 1) : "IMP") + " " + slot.name;
+      o.textContent = (idx < 11 ? "#" + (idx + 1) : "IMP") + " " + slot.name + " (SR " + Number(slot.sr).toFixed(0) + ")";
       sel.appendChild(o);
     });
   });
-  b1.value = clamp(v1, 0, 11);
-  b2.value = clamp(v2, 0, 11);
+  if (b1) b1.value = clamp(v1, 0, 11);
+  if (b2) b2.value = clamp(v2, 0, 11);
+
+  if (bw && LIVE.bowl_xi) {
+    const oversByBowler = LIVE._oversByBowler || new Array(12).fill(0);
+    bw.replaceChildren();
+    LIVE.bowl_xi.forEach((slot, idx) => {
+      const bowled = oversByBowler[idx] || 0;
+      const o = document.createElement("option");
+      o.value = idx;
+      const quotaNote = bowled >= 4 ? "4/4 ov — quota done" : bowled + "/4 ov";
+      o.textContent = (idx < 11 ? "#" + (idx + 1) : "IMP") + " " + slot.name + " (" + quotaNote + ", Econ " + Number(slot.econ).toFixed(2) + ")";
+      bw.appendChild(o);
+    });
+    bw.value = clamp(vw, 0, 11);
+  }
 }
 
 function prepareNextOverForm() {
   const nextOv = LIVE.overs.length + 1;
+  const oversByBowler = LIVE._oversByBowler || new Array(12).fill(0);
   if (nextOv === 1) {
     $("lo-runs").value = 8;
     $("lo-wkts").value = 0;
     $("lo-bounds").value = 1;
     $("lo-bat1").value = 0;
     $("lo-bat2").value = 1;
+    if ($("lo-bowler")) $("lo-bowler").value = 0;
     $("lo-imp-chase").checked = false;
     $("lo-imp-bowl").checked = false;
   } else {
@@ -759,6 +926,17 @@ function prepareNextOverForm() {
     $("lo-bounds").value = 1;
     $("lo-bat1").value = prev.bat1;
     $("lo-bat2").value = prev.bat2;
+    if ($("lo-bowler")) {
+      let nextBowler = (prev.bowler + 1) % 5;
+      for (let step = 0; step < 12; step++) {
+        const cand = (prev.bowler + 1 + step) % 11;
+        if (cand !== prev.bowler && (oversByBowler[cand] || 0) < 4) {
+          nextBowler = cand;
+          break;
+        }
+      }
+      $("lo-bowler").value = nextBowler;
+    }
     $("lo-imp-chase").checked = !!prev.imp_chase;
     $("lo-imp-bowl").checked = !!prev.imp_bowl;
   }
@@ -796,25 +974,40 @@ function buildDraftOverEntry() {
   const ov_bounds = clamp(+$("lo-bounds").value || 0, 0, 10);
   const bat1 = clamp(+$("lo-bat1").value || 0, 0, 11);
   const bat2 = clamp(+$("lo-bat2").value || 0, 0, 11);
+  const bowler = $("lo-bowler") ? clamp(+$("lo-bowler").value || 0, 0, 11) : 0;
   const imp_chase = ($("lo-imp-chase").checked || bat1 === 11 || bat2 === 11) ? 1 : 0;
-  const imp_bowl = $("lo-imp-bowl").checked ? 1 : 0;
+  const imp_bowl = ($("lo-imp-bowl").checked || bowler === 11) ? 1 : 0;
 
   const baseBalls = (LIVE._ballsByBatter || new Array(12).fill(0)).slice();
+  const baseRuns = (LIVE._runsByBatter || new Array(12).fill(0)).slice();
+  const baseBowled = (LIVE._oversByBowler || new Array(12).fill(0)).slice();
+  const sr1 = (LIVE.xi[bat1] && Number(LIVE.xi[bat1].sr)) || 125.0;
+  const sr2 = (LIVE.xi[bat2] && Number(LIVE.xi[bat2].sr)) || 125.0;
+  const w1 = sr1 / Math.max(1, sr1 + sr2);
   let bslw;
   if (ov_wkts === 0) {
     bslw = prev.bslw + 6;
     baseBalls[bat1] = (baseBalls[bat1] || 0) + 3;
     baseBalls[bat2] = (baseBalls[bat2] || 0) + 3;
+    baseRuns[bat1] = (baseRuns[bat1] || 0) + ov_runs * w1;
+    baseRuns[bat2] = (baseRuns[bat2] || 0) + ov_runs * (1 - w1);
   } else {
     bslw = 3;
     baseBalls[bat1] = (baseBalls[bat1] || 0) + (ov_wkts === 1 ? 4 : 2);
     baseBalls[bat2] = (baseBalls[bat2] || 0) + 2;
+    baseRuns[bat1] = (baseRuns[bat1] || 0) + ov_runs * 0.65;
+    baseRuns[bat2] = (baseRuns[bat2] || 0) + ov_runs * 0.35;
   }
+  baseBowled[bowler] = (baseBowled[bowler] || 0) + 1;
 
   const entry = {
     over: nextOv, ov_runs, ov_wkts, ov_bounds,
     runs: prev.runs + ov_runs, wkts: prev.wkts + ov_wkts, bslw,
-    bat1, bat2, bat1_balls: baseBalls[bat1], bat2_balls: baseBalls[bat2], imp_chase, imp_bowl,
+    bat1, bat2, bowler,
+    bat1_balls: baseBalls[bat1], bat2_balls: baseBalls[bat2],
+    bat1_runs: baseRuns[bat1], bat2_runs: baseRuns[bat2],
+    oversByBowler: baseBowled,
+    imp_chase, imp_bowl,
   };
   const res = computeOverPrediction(LIVE.overs, entry, LIVE);
   return Object.assign(entry, res);
@@ -853,6 +1046,9 @@ function refreshLiveUI() {
   const [cCol, bCol] = getMatchColors(LIVE.chaser, LIVE.bowler);
   document.documentElement.style.setProperty("--live-chaser-color", cCol);
   document.documentElement.style.setProperty("--live-bowler-color", bCol);
+  const cLbl = $("xi-chaser-label"), bLbl = $("xi-bowler-label");
+  if (cLbl) cLbl.style.color = cCol;
+  if (bLbl) bLbl.style.color = bCol;
 
   const finished = isChaseFinished();
   const nextOv = LIVE.overs.length + 1;
@@ -901,6 +1097,9 @@ function drawLiveState() {
 
   const b1 = LIVE.xi[o.bat1] || { name: "Batter 1", sr: 125 };
   const b2 = LIVE.xi[o.bat2] || { name: "Batter 2", sr: 125 };
+  const bwIdx = o.bowler != null ? o.bowler : 0;
+  const bwSlot = (LIVE.bowl_xi && LIVE.bowl_xi[bwIdx]) || { name: "Bowler 1", econ: 8.3 };
+  const bwOvers = (o.oversByBowler && o.oversByBowler[bwIdx]) || 1;
 
   add("div", "over", LIVE.overs.length === 0
     ? "Preview after Over 1: " + o.runs + "/" + o.wkts + " (target " + LIVE.target + ")"
@@ -928,10 +1127,11 @@ function drawLiveState() {
   row("DLS resources & par", f2(o.dls_resources, 1) + "% left | " + parDiffStr + " vs DLS par (" + f2(o.runs_needed_per_wicket, 1) + " R/wkt)");
   row("Match phase", phaseLabel);
   row("Last 3 overs", o.runs_last_3 + "R, " + o.wkts_last_3 + "W, " + o.bounds_last_3 + "x4/6 (accel " + (o.accel >= 0 ? "+" : "") + f2(o.accel) + ")");
-  row("Partnership", o.bslw + "b since wkt | Est. " + o.bat_runs_sum + "R at crease");
+  row("Partnership", o.bslw + "b since wkt | " + o.bat_runs_sum + "R by pair at crease");
   row("At the crease", b1.name + " (" + o.bat1_balls + "b, SR " + f2(b1.sr, 1) + ") & " + b2.name + " (" + o.bat2_balls + "b, SR " + f2(b2.sr, 1) + ")");
   row("Batter metrics", "Mean SR " + f2(o.bat_sr_mean, 1) + " | BPD " + f2(o.bat_bpd_mean, 1) + " | Settled x SR " + f2(o.settled_sr_interaction, 1));
   row("Dugout depth", o.rem_bat_n + " batters left | Top-3 avg sum " + f2(o.rem_bat_quality, 1) + " (SR " + f2(o.rem_bat_sr, 1) + ")");
+  row("Bowler (Over " + o.over + ")", bwSlot.name + " (" + bwOvers + "/4 ov, Econ " + f2(bwSlot.econ, 2) + ")");
   row("Bowling attack", "Rem. econ " + f2(o.bowl_rem_econ, 2) + " | Top-2 overs left " + f2(o.best_bowler_overs_left, 1));
   row("Venue record", LIVE.venue.split(",")[0] + " (chase win " + f2(ctx.venue_rate * 100, 1) + "%)");
   row("Home edge", homeLabel + " (" + (ctx.home_edge >= 0 ? "+" : "") + f2(ctx.home_edge, 3) + ")");
@@ -955,8 +1155,12 @@ function drawLiveLog() {
     const tr = document.createElement("tr");
     const b1 = (LIVE.xi[o.bat1] && LIVE.xi[o.bat1].name) || ("#" + (o.bat1 + 1));
     const b2 = (LIVE.xi[o.bat2] && LIVE.xi[o.bat2].name) || ("#" + (o.bat2 + 1));
+    const bwIdx = o.bowler != null ? o.bowler : 0;
+    const bwName = (LIVE.bowl_xi && LIVE.bowl_xi[bwIdx] && LIVE.bowl_xi[bwIdx].name) || ("#" + (bwIdx + 1));
+    const bwOv = (o.oversByBowler && o.oversByBowler[bwIdx]) || 1;
     const cells = [
       "Over " + o.over,
+      bwName + " (" + bwOv + "/4)",
       o.ov_runs + " runs, " + o.ov_wkts + " wkt (" + o.ov_bounds + "x4/6)",
       o.runs + "/" + o.wkts + " (need " + o.need + " off " + o.balls + "b)",
       b1 + " (" + o.bat1_balls + "b), " + b2 + " (" + o.bat2_balls + "b)",
@@ -967,7 +1171,7 @@ function drawLiveLog() {
     ];
     cells.forEach((c, idx) => {
       const td = document.createElement("td");
-      if (idx === 7) {
+      if (idx === 8) {
         td.style.fontWeight = "700";
         td.style.color = o.p >= 0.5 ? cCol : bCol;
       }
