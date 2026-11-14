@@ -3,13 +3,22 @@
 const NS = "http://www.w3.org/2000/svg";
 const $ = (id) => document.getElementById(id);
 const LABELS = {
-  runs_so_far: "Runs scored", target: "Target", wickets_lost: "Wickets lost", balls_left: "Balls left",
+  runs_so_far: "Runs scored", target: "Target", target_vs_venue_par: "Target vs venue par",
+  target_vs_recent_par: "Target vs recent league par", wickets_lost: "Wickets lost", balls_left: "Balls left",
   current_run_rate: "Current run rate", required_run_rate: "Required run rate", run_rate_diff: "Run-rate gap",
   runs_needed_frac: "Share of target needed", resources: "Balls left x wickets",
-  runs_needed_per_wicket: "Runs needed per wicket", runs_last_3: "Runs, last 3 overs",
-  wkts_last_3: "Wickets, last 3 overs", boundaries_last_3: "Boundaries, last 3 overs", acceleration: "Recent acceleration",
-  balls_since_last_wicket: "Balls since last wicket", bat_sr_mean: "Batters' strike rate", bat_balls_sum: "Balls faced by batters",
-  bat_balls_max: "Most balls faced by a batter", chasing_impact_used: "Chasing side used impact player",
+  dls_resources: "DLS resource %", par_score_diff: "Runs vs DLS par",
+  runs_needed_per_wicket: "Runs needed per wicket", is_powerplay: "In powerplay",
+  is_death: "In death overs", powerplay_balls_left: "Powerplay balls left",
+  runs_last_3: "Runs, last 3 overs", wkts_last_3: "Wickets, last 3 overs",
+  boundaries_last_3: "Boundaries, last 3 overs", acceleration: "Recent acceleration",
+  balls_since_last_wicket: "Balls since last wicket", bat_sr_mean: "Batters' strike rate",
+  bat_bpd_mean: "Batters' balls per dismissal", bat_balls_sum: "Balls faced by batters",
+  bat_balls_max: "Most balls faced by a batter", bat_runs_sum: "Partnership runs at crease",
+  settled_sr_interaction: "Settled batter x strike rate", rem_bat_n: "Batters left in dugout",
+  rem_bat_quality: "Dugout top-3 avg sum", rem_bat_sr: "Dugout top-3 strike rate",
+  bowl_rem_econ: "Remaining bowling economy", bowl_rem_wkt_rate: "Remaining bowling wicket rate",
+  best_bowler_overs_left: "Top-2 bowlers overs left", chasing_impact_used: "Chasing side used impact player",
   bowling_impact_used: "Bowling side used impact player", target_vs_season_avg: "Target vs season average",
   venue_chase_rate: "Venue chase record", chasing_team_home: "Chasing side at home", bowling_team_home: "Bowling side at home",
   home_edge: "Home record edge", chaser_form: "Chasing side form", bowler_form: "Bowling side form",
@@ -327,11 +336,27 @@ function evalFullModel(featMap, useLive27 = false) {
   return 1 / (1 + Math.exp(-z));
 }
 
+function computeDLSResources(ballsLeft, wicketsLost) {
+  const dls = (DATA && DATA.whatif && DATA.whatif.dls_params) || null;
+  if (!dls || ballsLeft <= 0 || wicketsLost >= 10) return 0;
+  const w = clamp(Math.round(wicketsLost), 0, 9);
+  const z0 = (dls.Z0 && dls.Z0[w]) || 160;
+  const b = (dls.b && dls.b[w]) || 0.015;
+  const norm = dls.norm_120 || 168;
+  const raw = z0 * (1 - Math.exp(-b * ballsLeft));
+  return clamp((100 * raw) / norm, 0, 100);
+}
+
 function getContextStats(liveState) {
   const venues = (DATA.whatif && DATA.whatif.venues) || {};
+  const venuesPar = (DATA.whatif && DATA.whatif.venues_par) || {};
   const recentWins = (DATA.whatif && DATA.whatif.team_recent_wins) || {};
+  const teamBowlEcon = (DATA.whatif && DATA.whatif.team_bowl_econ) || {};
+  const teamBowlWkt = (DATA.whatif && DATA.whatif.team_bowl_wkt) || {};
   const seasonAvg = (DATA.whatif && DATA.whatif.default_season_avg_target) || 197.4;
+  const recentPar = (DATA.whatif && DATA.whatif.default_recent_par) || seasonAvg;
   const venue_rate = venues[liveState.venue] != null ? venues[liveState.venue] : 0.542;
+  const venue_par = venuesPar[liveState.venue] != null ? venuesPar[liveState.venue] : recentPar;
   const home_status = detectHomeStatus(liveState.venue, liveState.chaser, liveState.bowler);
   const home_edge = computeHomeEdge(home_status, liveState.chaser, liveState.bowler);
   const chaser_wins = recentWins[liveState.chaser] != null ? recentWins[liveState.chaser] : 3;
@@ -339,8 +364,14 @@ function getContextStats(liveState) {
   const chaser_form = (chaser_wins + 2 * 0.5) / (5 + 2);
   const bowler_form = (bowler_wins + 2 * 0.5) / (5 + 2);
   const target_vs_season_avg = liveState.target - seasonAvg;
+  const target_vs_venue_par = liveState.target - venue_par;
+  const target_vs_recent_par = liveState.target - recentPar;
+  const bowl_rem_econ = teamBowlEcon[liveState.bowler] != null ? teamBowlEcon[liveState.bowler] : 8.3;
+  const bowl_rem_wkt_rate = teamBowlWkt[liveState.bowler] != null ? teamBowlWkt[liveState.bowler] : 0.052;
   return {
-    venue_rate, home_status, home_edge, season_avg: seasonAvg, target_vs_season_avg,
+    venue_rate, venue_par, recent_par: recentPar, home_status, home_edge, season_avg: seasonAvg,
+    target_vs_season_avg, target_vs_venue_par, target_vs_recent_par,
+    bowl_rem_econ, bowl_rem_wkt_rate,
     chaser_wins, bowler_wins, chaser_form, bowler_form,
     chasing_team_home: home_status === "chaser" ? 1 : 0,
     bowling_team_home: home_status === "bowler" ? 1 : 0,
@@ -365,7 +396,13 @@ function computeOverPrediction(oversSoFar, overEntry, liveState) {
   const rrd = rrr - crr;
   const runs_needed_frac = need / target;
   const resources = balls * (10 - wkts);
+  const dls_resources = computeDLSResources(balls, wkts);
+  const par_score_diff = runs - target * (1 - dls_resources / 100);
   const runs_needed_per_wicket = need / hand;
+
+  const is_powerplay = ov <= 6 ? 1 : 0;
+  const is_death = ov >= 15 ? 1 : 0;
+  const powerplay_balls_left = Math.max(0, 36 - 6 * ov);
 
   const window3 = [...oversSoFar.slice(-2), overEntry];
   const runs_last_3 = window3.reduce((s, x) => s + x.ov_runs, 0);
@@ -373,17 +410,52 @@ function computeOverPrediction(oversSoFar, overEntry, liveState) {
   const bounds_last_3 = window3.reduce((s, x) => s + x.ov_bounds, 0);
   const accel = (runs_last_3 / Math.min(ov, 3)) - crr;
 
+  const battersBpd = (DATA.whatif && DATA.whatif.batters_bpd) || {};
+  const battersAvg = (DATA.whatif && DATA.whatif.batters_avg) || {};
+  const name1 = (xi[overEntry.bat1] && xi[overEntry.bat1].name) || "";
+  const name2 = (xi[overEntry.bat2] && xi[overEntry.bat2].name) || "";
   const sr1 = (xi[overEntry.bat1] && Number(xi[overEntry.bat1].sr)) || 125.0;
   const sr2 = (xi[overEntry.bat2] && Number(xi[overEntry.bat2].sr)) || 125.0;
+  const bpd1 = name1 in battersBpd ? Number(battersBpd[name1]) : 18.0;
+  const bpd2 = name2 in battersBpd ? Number(battersBpd[name2]) : 18.0;
   const bat_sr_mean = (sr1 + sr2) / 2;
+  const bat_bpd_mean = (bpd1 + bpd2) / 2;
   const b1 = Number(overEntry.bat1_balls) || 0;
   const b2 = Number(overEntry.bat2_balls) || 0;
   const bat_balls_sum = b1 + b2;
   const bat_balls_max = Math.max(b1, b2);
+  const bat_runs_sum = Math.min(runs, Math.round((b1 * sr1 + b2 * sr2) / 100));
+  const settled_sr_interaction = (bat_balls_max * bat_sr_mean) / 100;
+
+  const seenIdx = new Set([overEntry.bat1, overEntry.bat2]);
+  for (let k = 0; k < Math.min(12, wkts + 2); k++) seenIdx.add(k);
+  oversSoFar.forEach((x) => { seenIdx.add(x.bat1); seenIdx.add(x.bat2); });
+  const unbatted = [];
+  const maxSquadIdx = overEntry.imp_chase ? 12 : 11;
+  for (let idx = 0; idx < maxSquadIdx; idx++) {
+    if (!seenIdx.has(idx) && xi[idx]) {
+      const nm = xi[idx].name || "";
+      const avg = nm in battersAvg ? Number(battersAvg[nm]) : 22.5;
+      const sr = Number(xi[idx].sr) || 125.0;
+      unbatted.push({ avg, sr });
+    }
+  }
+  unbatted.sort((a, b) => b.avg - a.avg);
+  const rem_bat_n = Math.max(0, 9 - wkts);
+  const top3 = unbatted.slice(0, Math.min(3, rem_bat_n));
+  const rem_bat_quality = top3.reduce((s, x) => s + x.avg, 0);
+  const rem_bat_sr = top3.length ? top3.reduce((s, x) => s + x.sr, 0) / top3.length : 110.0;
+
+  const remOvers = Math.max(0, 20 - ov);
+  const best_bowler_overs_left = Math.min(8, Math.round(remOvers * 0.42 * 10) / 10);
+  const bowl_rem_econ = ctx.bowl_rem_econ;
+  const bowl_rem_wkt_rate = ctx.bowl_rem_wkt_rate;
 
   const feats = {
     runs_so_far: runs,
     target: target,
+    target_vs_venue_par: ctx.target_vs_venue_par,
+    target_vs_recent_par: ctx.target_vs_recent_par,
     wickets_lost: wkts,
     balls_left: balls,
     current_run_rate: crr,
@@ -391,15 +463,29 @@ function computeOverPrediction(oversSoFar, overEntry, liveState) {
     run_rate_diff: rrd,
     runs_needed_frac: runs_needed_frac,
     resources: resources,
+    dls_resources: dls_resources,
+    par_score_diff: par_score_diff,
     runs_needed_per_wicket: runs_needed_per_wicket,
+    is_powerplay: is_powerplay,
+    is_death: is_death,
+    powerplay_balls_left: powerplay_balls_left,
     runs_last_3: runs_last_3,
     wkts_last_3: wkts_last_3,
     boundaries_last_3: bounds_last_3,
     acceleration: accel,
     balls_since_last_wicket: overEntry.bslw,
     bat_sr_mean: bat_sr_mean,
+    bat_bpd_mean: bat_bpd_mean,
     bat_balls_sum: bat_balls_sum,
     bat_balls_max: bat_balls_max,
+    bat_runs_sum: bat_runs_sum,
+    settled_sr_interaction: settled_sr_interaction,
+    rem_bat_n: rem_bat_n,
+    rem_bat_quality: rem_bat_quality,
+    rem_bat_sr: rem_bat_sr,
+    bowl_rem_econ: bowl_rem_econ,
+    bowl_rem_wkt_rate: bowl_rem_wkt_rate,
+    best_bowler_overs_left: best_bowler_overs_left,
     chasing_impact_used: overEntry.imp_chase ? 1 : 0,
     bowling_impact_used: overEntry.imp_bowl ? 1 : 0,
     target_vs_season_avg: ctx.target_vs_season_avg,
@@ -412,15 +498,15 @@ function computeOverPrediction(oversSoFar, overEntry, liveState) {
   };
 
   if (target - runs <= 0) {
-    return { p: 1.0, pB: 1.0, rrr: 0, crr, rrd: -crr, need: 0, balls, resources, runs_needed_frac: 0, runs_needed_per_wicket: 0, runs_last_3, wkts_last_3, bounds_last_3, accel, bat_sr_mean, bat_balls_sum, bat_balls_max, ctx, decided: "won" };
+    return { p: 1.0, pB: 1.0, rrr: 0, crr, rrd: -crr, need: 0, balls, resources, dls_resources, par_score_diff, runs_needed_frac: 0, runs_needed_per_wicket: 0, is_powerplay, is_death, powerplay_balls_left, runs_last_3, wkts_last_3, bounds_last_3, accel, bat_sr_mean, bat_bpd_mean, bat_balls_sum, bat_balls_max, bat_runs_sum, settled_sr_interaction, rem_bat_n, rem_bat_quality, rem_bat_sr, bowl_rem_econ, bowl_rem_wkt_rate, best_bowler_overs_left, ctx, decided: "won" };
   }
   if (wkts >= 10 || balls <= 0) {
-    return { p: 0.0, pB: 0.0, rrr: rawRrr, crr, rrd, need, balls, resources: 0, runs_needed_frac, runs_needed_per_wicket, runs_last_3, wkts_last_3, bounds_last_3, accel, bat_sr_mean, bat_balls_sum, bat_balls_max, ctx, decided: "lost" };
+    return { p: 0.0, pB: 0.0, rrr: rawRrr, crr, rrd, need, balls, resources: 0, dls_resources: 0, par_score_diff: runs - target, runs_needed_frac, runs_needed_per_wicket, is_powerplay, is_death, powerplay_balls_left: 0, runs_last_3, wkts_last_3, bounds_last_3, accel, bat_sr_mean, bat_bpd_mean, bat_balls_sum, bat_balls_max, bat_runs_sum, settled_sr_interaction, rem_bat_n: 0, rem_bat_quality: 0, rem_bat_sr, bowl_rem_econ, bowl_rem_wkt_rate, best_bowler_overs_left: 0, ctx, decided: "lost" };
   }
 
   const p = evalFullModel(feats, true);
   const pB = rrd <= 0 ? pWin : pLose;
-  return { p, pB, rrr: rawRrr, crr, rrd, need, balls, resources, runs_needed_frac, runs_needed_per_wicket, runs_last_3, wkts_last_3, bounds_last_3, accel, bat_sr_mean, bat_balls_sum, bat_balls_max, ctx, decided: null };
+  return { p, pB, rrr: rawRrr, crr, rrd, need, balls, resources, dls_resources, par_score_diff, runs_needed_frac, runs_needed_per_wicket, is_powerplay, is_death, powerplay_balls_left, runs_last_3, wkts_last_3, bounds_last_3, accel, bat_sr_mean, bat_bpd_mean, bat_balls_sum, bat_balls_max, bat_runs_sum, settled_sr_interaction, rem_bat_n, rem_bat_quality, rem_bat_sr, bowl_rem_econ, bowl_rem_wkt_rate, best_bowler_overs_left, ctx, decided: null };
 }
 
 function defaultTeamXI(teamName) {
@@ -834,16 +920,22 @@ function drawLiveState() {
   add("h3", "", "Computed statistics");
   const dl = document.createElement("dl");
   const row = (k, v) => { const dt = document.createElement("dt"); dt.textContent = k; const dd = document.createElement("dd"); dd.textContent = v; dl.append(dt, dd); };
+  const parDiffStr = (o.par_score_diff >= 0 ? "+" : "") + f2(o.par_score_diff, 1);
+  const vParDiffStr = (ctx.target_vs_venue_par >= 0 ? "+" : "") + f2(ctx.target_vs_venue_par, 1);
+  const phaseLabel = o.is_powerplay ? ("Powerplay (" + o.powerplay_balls_left + "b left)") : o.is_death ? "Death overs (15-20)" : "Middle overs (7-14)";
   row("Needs", o.need + " off " + o.balls + " balls (" + Math.round(o.runs_needed_frac * 100) + "% of target)");
   row("Current / req. rate", f2(o.crr) + " / " + f2(o.rrr) + " (gap " + (o.rrd >= 0 ? "+" : "") + f2(o.rrd) + ")");
-  row("Resources", o.resources + " (balls x wkts), " + f2(o.runs_needed_per_wicket, 1) + " runs/wkt");
+  row("DLS resources & par", f2(o.dls_resources, 1) + "% left | " + parDiffStr + " vs DLS par (" + f2(o.runs_needed_per_wicket, 1) + " R/wkt)");
+  row("Match phase", phaseLabel);
   row("Last 3 overs", o.runs_last_3 + "R, " + o.wkts_last_3 + "W, " + o.bounds_last_3 + "x4/6 (accel " + (o.accel >= 0 ? "+" : "") + f2(o.accel) + ")");
-  row("Partnership", o.bslw + " legal balls since last wicket");
+  row("Partnership", o.bslw + "b since wkt | Est. " + o.bat_runs_sum + "R at crease");
   row("At the crease", b1.name + " (" + o.bat1_balls + "b, SR " + f2(b1.sr, 1) + ") & " + b2.name + " (" + o.bat2_balls + "b, SR " + f2(b2.sr, 1) + ")");
-  row("Batter stats", "Mean SR " + f2(o.bat_sr_mean, 1) + " | Balls sum " + o.bat_balls_sum + ", max " + o.bat_balls_max);
+  row("Batter metrics", "Mean SR " + f2(o.bat_sr_mean, 1) + " | BPD " + f2(o.bat_bpd_mean, 1) + " | Settled x SR " + f2(o.settled_sr_interaction, 1));
+  row("Dugout depth", o.rem_bat_n + " batters left | Top-3 avg sum " + f2(o.rem_bat_quality, 1) + " (SR " + f2(o.rem_bat_sr, 1) + ")");
+  row("Bowling attack", "Rem. econ " + f2(o.bowl_rem_econ, 2) + " | Top-2 overs left " + f2(o.best_bowler_overs_left, 1));
   row("Venue record", LIVE.venue.split(",")[0] + " (chase win " + f2(ctx.venue_rate * 100, 1) + "%)");
   row("Home edge", homeLabel + " (" + (ctx.home_edge >= 0 ? "+" : "") + f2(ctx.home_edge, 3) + ")");
-  row("Target vs season", LIVE.target + " (" + diffStr + " vs avg " + f2(ctx.season_avg, 1) + ")");
+  row("Target vs par", vParDiffStr + " vs venue par (" + f2(ctx.venue_par, 1) + ") | " + diffStr + " vs season avg");
   row("Team form (last 5)", "Chaser " + f2(ctx.chaser_form, 2) + " (" + ctx.chaser_wins + "/5), Bowler " + f2(ctx.bowler_form, 2) + " (" + ctx.bowler_wins + "/5)");
   row("Run-rate rule", o.pB > 0.5 ? "Ahead/on rate (" + pct(o.pB) + "%)" : "Behind rate (" + pct(o.pB) + "%)");
   s.appendChild(dl);
@@ -894,16 +986,20 @@ function initWhatIf() {
   const t = $("wi-target"); t.min = Math.max(60, tmin); t.max = tmax; t.value = Math.round(DATA.meta.mean_target_fit || 175);
   ["wi-target", "wi-over", "wi-runs", "wi-wkts"].forEach((id) => $(id).addEventListener("input", drawWhatIf));
   $("wi-note").textContent = WI.same_as_final_model
-    ? "This is the final model. Inputs you cannot set here (" + (WI.held_at_average.length ? WI.held_at_average.map(label).join(", ").toLowerCase() : "none") + ") are held at their training average. Use the Live match predictor above to set all 27 features."
-    : "This panel uses a simpler logistic regression on the ten core features, not the final model, so numbers can differ a little from the explorer.";
+    ? "This is the final model. Inputs you cannot set here (" + (WI.held_at_average.length ? WI.held_at_average.map(label).join(", ").toLowerCase() : "venue par") + ") are held at their training average. Use the Live match predictor above to evaluate all 39 features."
+    : "This panel uses a simpler logistic regression on the core and derived features, not the final model, so numbers can differ a little from the explorer.";
   drawWhatIf();
 }
 function wiProb(target, over, runs, wk) {
   const balls = 120 - 6 * over, need = target - runs, hand = 10 - wk;
   const rrr = Math.min(36, (need / balls) * 6), crr = runs / over;
+  const dls_resources = computeDLSResources(balls, wk);
+  const par_score_diff = runs - target * (1 - dls_resources / 100);
+  const defaultPar = (DATA && DATA.whatif && DATA.whatif.default_recent_par) || (DATA && DATA.meta && DATA.meta.mean_target_fit) || 170;
   const v = {
-    runs_so_far: runs, target, wickets_lost: wk, balls_left: balls, current_run_rate: crr, required_run_rate: rrr,
-    run_rate_diff: rrr - crr, runs_needed_frac: need / target, resources: balls * hand, runs_needed_per_wicket: need / hand,
+    runs_so_far: runs, target, target_vs_venue_par: target - defaultPar, wickets_lost: wk, balls_left: balls,
+    current_run_rate: crr, required_run_rate: rrr, run_rate_diff: rrr - crr, runs_needed_frac: need / target,
+    resources: balls * hand, dls_resources, par_score_diff, runs_needed_per_wicket: need / hand,
   };
   const p = evalFullModel(v, false);
   return { p, need, balls, rrr: need / balls * 6, crr, ahead: crr >= need / balls * 6 };

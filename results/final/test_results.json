@@ -1,30 +1,21 @@
 {
   "model": "logreg",
-  "feature_set": "D +batters+impact",
+  "feature_set": "B +derived",
   "features": [
     "runs_so_far",
-    "target",
+    "target_vs_venue_par",
     "wickets_lost",
     "balls_left",
     "current_run_rate",
     "required_run_rate",
     "run_rate_diff",
     "runs_needed_frac",
-    "resources",
-    "runs_needed_per_wicket",
-    "runs_last_3",
-    "wkts_last_3",
-    "boundaries_last_3",
-    "acceleration",
-    "balls_since_last_wicket",
-    "bat_sr_mean",
-    "bat_balls_sum",
-    "bat_balls_max",
-    "chasing_impact_used",
-    "bowling_impact_used"
+    "dls_resources",
+    "par_score_diff",
+    "runs_needed_per_wicket"
   ],
   "params": {
-    "C": 0.1
+    "C": 0.31622776601683794
   },
   "fitted_on_seasons": [
     2008,
@@ -52,17 +43,17 @@
       "brier": 0.1791719453840187,
       "accuracy": 0.7530813475760065
     },
-    "FINAL logreg (D +batters+impact)": {
-      "log_loss": 0.372560392926285,
-      "brier": 0.11885077766901983,
-      "accuracy": 0.8340180772391126
+    "FINAL logreg (B +derived)": {
+      "log_loss": 0.381479397064046,
+      "brier": 0.1218659305546821,
+      "accuracy": 0.8204601479046837
     },
     "(ref) same model, train only": {
-      "log_loss": 0.38107478936134953,
-      "brier": 0.12218541142527331,
-      "accuracy": 0.8225143796220213
+      "log_loss": 0.3884359531063819,
+      "brier": 0.12478956364545021,
+      "accuracy": 0.8167625308134757
     }
   },
-  "calibration_slope": 1.164414908031105,
-  "calibration_intercept": 0.45343913162084787
+  "calibration_slope": 1.1858054423826094,
+  "calibration_intercept": 0.6126167583566283
 }
