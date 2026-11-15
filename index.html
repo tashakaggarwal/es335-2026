@@ -132,20 +132,20 @@
                 <th scope="col">Seasons</th>
                 <th scope="col">Matches</th>
                 <th scope="col">Overs</th>
-                <th scope="col">Avg Target</th>
+                <th scope="col">Target</th>
                 <th scope="col">Win %</th>
-                <th scope="col" class="wrap-cell">Role in Pipeline</th>
+                <th scope="col" class="wrap-cell">Pipeline Role</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td><b>Train</b></td>
-                <td>2008–2023</td>
+                <td>2008–23</td>
                 <td>977</td>
                 <td>17,578</td>
                 <td>165.8</td>
                 <td>54.2%</td>
-                <td class="wrap-cell">Fit DLS curve, 5-fold <span class="code-tag">GroupKFold</span> hyperparameter tuning, OOF calibration</td>
+                <td class="wrap-cell">DLS curve, 5-fold GroupKFold CV, OOF calibration</td>
               </tr>
               <tr>
                 <td><b>Validation</b></td>
@@ -154,16 +154,16 @@
                 <td>1,239</td>
                 <td>191.1</td>
                 <td>51.4%</td>
-                <td class="wrap-cell">Compare model families &amp; 7-step feature ladder; apply 0.003 selection rule</td>
+                <td class="wrap-cell">Compare model families &amp; feature ladder (0.003 rule)</td>
               </tr>
               <tr class="final">
-                <td><b>Held-Out Test</b></td>
-                <td>2025–2026</td>
+                <td><b>Test</b></td>
+                <td>2025–26</td>
                 <td>138</td>
                 <td>2,434</td>
                 <td>195.4</td>
                 <td>56.5%</td>
-                <td class="wrap-cell">Evaluated <b>once</b> in <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/04_final_test.ipynb" target="_blank" rel="noopener">Notebook 04</a> after refitting chosen spec on 2008–2024</td>
+                <td class="wrap-cell">Evaluated <b>once</b> in <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/04_final_test.ipynb" target="_blank" rel="noopener">NB 04</a> (refit on 2008–24)</td>
               </tr>
             </tbody>
           </table>
@@ -546,11 +546,11 @@
           <table class="compact-table">
             <thead>
               <tr>
-                <th scope="col">Feature Ladder Stage</th>
-                <th scope="col">Features</th>
-                <th scope="col">LR Val Log Loss</th>
-                <th scope="col">LR Val Acc</th>
-                <th scope="col">HGB Val Log Loss</th>
+                <th scope="col">Ladder Stage</th>
+                <th scope="col">Feats</th>
+                <th scope="col">LR Loss</th>
+                <th scope="col">LR Acc</th>
+                <th scope="col">HGB Loss</th>
               </tr>
             </thead>
             <tbody>
@@ -562,21 +562,21 @@
                 <td>0.4041</td>
               </tr>
               <tr class="final">
-                <td><b>B: +derived</b> <span class="badge-selected">Selected Final</span></td>
+                <td><b>B: +derived</b> <span class="badge-selected">Selected</span></td>
                 <td><b>11</b></td>
                 <td><b>0.3697</b></td>
                 <td><b>82.89%</b></td>
                 <td><b>0.3895</b></td>
               </tr>
               <tr>
-                <td><b>C: +phase+momentum</b> (lowest val loss)</td>
+                <td><b>C: +phase+momentum</b> (best val)</td>
                 <td>19</td>
                 <td>0.3690</td>
                 <td>82.49%</td>
                 <td>0.3899</td>
               </tr>
               <tr>
-                <td><b>D: +batters+bowling+impact</b></td>
+                <td><b>D: +batters+bowl+impact</b></td>
                 <td>31</td>
                 <td>0.3789</td>
                 <td>82.73%</td>
@@ -597,7 +597,7 @@
                 <td>0.4123</td>
               </tr>
               <tr>
-                <td><b>G: +form (all features)</b> <span class="badge-live">Live UI</span></td>
+                <td><b>G: +form (all 39)</b> <span class="badge-live">Live UI</span></td>
                 <td>39</td>
                 <td>0.3866</td>
                 <td>82.57%</td>
@@ -742,17 +742,17 @@
       </div>
     </div>
 
-    <div class="grid-3">
+    <div class="method-grid">
       <div class="card-panel">
         <h3>Error by Required Run Rate (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/04_final_test.ipynb" target="_blank" rel="noopener">NB 04 §8</a>)</h3>
         <p class="note" style="margin-bottom:8px">Errors concentrate in the competitive <span class="code-tag">RRR &isin; (8, 12]</span> zone where matches are genuine coin flips; in extreme states (<span class="code-tag">RRR &gt; 14</span>), the model crushes the step-function rule:</p>
         <div class="table-scroll">
-          <table class="compact-table" style="min-width:100%">
+          <table class="compact-table">
             <thead>
               <tr>
                 <th scope="col">RRR Bin</th>
-                <th scope="col">Rows</th>
-                <th scope="col">Win %</th>
+                <th scope="col">Over Rows</th>
+                <th scope="col">Actual Win %</th>
                 <th scope="col">Mean <i>p&#770;</i></th>
                 <th scope="col">Model Loss</th>
                 <th scope="col">Rule B Loss</th>
@@ -775,12 +775,12 @@
         <h3>Error by Wickets Lost (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/04_final_test.ipynb" target="_blank" rel="noopener">NB 04 §8</a>)</h3>
         <p class="note" style="margin-bottom:8px">When 0 wickets are lost (mostly Powerplay overs 1–6), outcomes remain open (<span class="code-tag">0.508</span> loss) and the model is slightly conservative (<span class="code-tag">mean p&#770; = 54.8%</span> vs <span class="code-tag">72.4%</span> actual win rate):</p>
         <div class="table-scroll">
-          <table class="compact-table" style="min-width:100%">
+          <table class="compact-table">
             <thead>
               <tr>
-                <th scope="col">Wickets</th>
-                <th scope="col">Rows</th>
-                <th scope="col">Win %</th>
+                <th scope="col">Wickets Lost</th>
+                <th scope="col">Over Rows</th>
+                <th scope="col">Actual Win %</th>
                 <th scope="col">Mean <i>p&#770;</i></th>
                 <th scope="col">Model Loss</th>
                 <th scope="col">Rule B Loss</th>
@@ -797,31 +797,78 @@
           </table>
         </div>
       </div>
+    </div>
 
-      <div class="card-panel">
-        <h3>Season &amp; Target Shift Breakdown</h3>
-        <p class="note" style="margin-bottom:8px">From <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/final/test_by_season.csv" target="_blank" rel="noopener"><span class="code-tag">test_by_season.csv</span></a> and the distribution-shift check in Notebook 04 §7:</p>
-        <div class="table-scroll">
-          <table class="compact-table" style="min-width:100%">
-            <thead>
-              <tr>
-                <th scope="col">Test Slice</th>
-                <th scope="col">Rows (Matches)</th>
-                <th scope="col">Model Loss</th>
-                <th scope="col">Rule B Loss</th>
-                <th scope="col">Model Acc</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td><b>2025 Season</b></td><td>1,202 (68)</td><td>0.4211</td><td>0.5911</td><td>79.95%</td></tr>
-              <tr><td><b>2026 Season</b></td><td>1,232 (70)</td><td><b>0.3428</b></td><td>0.4894</td><td><b>84.09%</b></td></tr>
-              <tr><td><b>Target &le; 166</b> (train med)</td><td>584</td><td>0.3353</td><td>0.4874</td><td>&mdash;</td></tr>
-              <tr><td><b>Target 167–203</b> (50–90%)</td><td>933</td><td>0.4155</td><td>0.5540</td><td>&mdash;</td></tr>
-              <tr><td><b>Target &gt; 203</b> (&gt;90th pct)</td><td>917</td><td>0.3763</td><td>0.5583</td><td>&mdash;</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="note" style="margin-top:8px"><b>Why calibration intercept is +0.61:</b> Chasing teams won 56.4% of test over-states even though 37.7% of test rows had targets above the training 90th percentile (203). Because teams now successfully chase 200+ more often than in 2008–2023, the model slightly under-predicts win probability in the 40%–80% band (slope 1.19).</p>
+    <div class="card-panel" style="margin-top:20px">
+      <h3>Season &amp; Target Shift Breakdown (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/final/test_by_season.csv" target="_blank" rel="noopener"><span class="code-tag">test_by_season.csv</span></a> &amp; <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/04_final_test.ipynb" target="_blank" rel="noopener">NB 04 §7</a>)</h3>
+      <p class="note" style="margin-bottom:10px">Evaluating how the model generalizes across individual holdout seasons and across the modern scoring surge (where 37.7% of 2025–2026 over states face targets above the 2008–2023 training 90th percentile of 203 runs):</p>
+      <div class="table-scroll">
+        <table class="compact-table">
+          <thead>
+            <tr>
+              <th scope="col">Evaluation Slice</th>
+              <th scope="col">Over Rows (Matches)</th>
+              <th scope="col">Model Log Loss</th>
+              <th scope="col">Rule B Log Loss</th>
+              <th scope="col">Log-Loss Gain</th>
+              <th scope="col">Model Brier</th>
+              <th scope="col">Model Acc</th>
+              <th scope="col" class="wrap-cell">Era-Shift &amp; Calibration Behavior</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>2025 Season</b></td>
+              <td>1,202 (68 matches)</td>
+              <td>0.4211</td>
+              <td>0.5911</td>
+              <td><b>&minus;0.1700</b> (28.8%)</td>
+              <td>0.1352</td>
+              <td>79.95%</td>
+              <td class="wrap-cell">Includes the two largest single-match upsets in the test set (KKR 95 all out chasing 112; DC 1-wkt miracle chasing 210).</td>
+            </tr>
+            <tr class="final">
+              <td><b>2026 Season</b></td>
+              <td>1,232 (70 matches)</td>
+              <td><b>0.3428</b></td>
+              <td>0.4894</td>
+              <td><b>&minus;0.1466</b> (30.0%)</td>
+              <td><b>0.1088</b></td>
+              <td><b>84.09%</b></td>
+              <td class="wrap-cell">Strongest season performance across all metrics despite being two full years past the training window.</td>
+            </tr>
+            <tr>
+              <td><b>Target &le; 166</b> (&le; Train Median)</td>
+              <td>584 rows (24.0%)</td>
+              <td>0.3353</td>
+              <td>0.4874</td>
+              <td><b>&minus;0.1521</b> (31.2%)</td>
+              <td>&mdash;</td>
+              <td>&mdash;</td>
+              <td class="wrap-cell">Modest targets where the chasing team is heavily favored unless early Powerplay wickets fall.</td>
+            </tr>
+            <tr>
+              <td><b>Target 167–203</b> (50th–90th Pct)</td>
+              <td>933 rows (38.3%)</td>
+              <td>0.4155</td>
+              <td>0.5540</td>
+              <td><b>&minus;0.1385</b> (25.0%)</td>
+              <td>&mdash;</td>
+              <td>&mdash;</td>
+              <td class="wrap-cell">Par modern T20 chases with the highest competitive uncertainty through the middle overs.</td>
+            </tr>
+            <tr>
+              <td><b>Target &gt; 203</b> (&gt; Train 90th Pct)</td>
+              <td>917 rows (37.7%)</td>
+              <td>0.3763</td>
+              <td>0.5583</td>
+              <td><b>&minus;0.1820</b> (32.6%)</td>
+              <td>&mdash;</td>
+              <td>&mdash;</td>
+              <td class="wrap-cell">Largest margin over Rule B: teams now chase 200+ more often than in 2008–2023, explaining the slight +0.61 calibration intercept (slope 1.19).</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>

@@ -118,22 +118,17 @@ a:hover { color: var(--outfield); }
 }
 .bar .wrap {
   display: flex; flex-wrap: nowrap; gap: 20px; align-items: center; justify-content: space-between;
-  padding-top: 10px; padding-bottom: 10px; white-space: nowrap; overflow-x: auto;
+  padding-top: 12px; padding-bottom: 12px; white-space: nowrap; overflow-x: auto;
 }
 .brand { display: inline-flex; align-items: center; flex-shrink: 0; }
 .bar b {
   font-family: "Fraunces", Georgia, serif;
   font-weight: 800;
-  font-size: 1.32rem;
+  font-size: 1.34rem;
   letter-spacing: -0.02em;
   white-space: nowrap;
-  color: var(--outfield);
-  background: color-mix(in srgb, var(--outfield) 11%, var(--pitch));
-  border: 1px solid color-mix(in srgb, var(--outfield) 32%, var(--line));
-  border-left: 4px solid var(--outfield);
-  padding: 4px 13px;
-  border-radius: 7px;
-  line-height: 1.2;
+  color: var(--ink);
+  line-height: 1.1;
 }
 .bar nav { display: flex; flex-wrap: nowrap; gap: 16px; align-items: center; font-family: var(--display); font-size: 0.91rem; white-space: nowrap; }
 .bar nav a { text-decoration: none; color: var(--ink-soft); font-weight: 600; white-space: nowrap; }
@@ -473,16 +468,16 @@ footer {
 .compact-table th, .compact-table td {
   padding: 8px 9px;
 }
-.grid-3 .compact-table {
-  font-size: 0.85rem;
+.method-grid .compact-table {
+  font-size: 0.86rem;
 }
-.grid-3 .compact-table th, .grid-3 .compact-table td {
-  padding: 7px 6px;
+.method-grid .compact-table th, .method-grid .compact-table td {
+  padding: 8px 7px;
 }
 .wrap-cell {
   white-space: normal !important;
   text-align: left !important;
-  min-width: 170px;
+  min-width: 0;
   max-width: none;
 }
 .badge-selected {
