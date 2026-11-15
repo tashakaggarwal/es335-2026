@@ -7,7 +7,7 @@
 <meta name="description" content="Calibrated over-by-over second-innings win probability model for the Indian Premier League (2008–2026). Full problem formulation, data & preprocessing, model comparison, interactive explorers, test evaluation, and error analysis.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,650;12..96,700;12..96,800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,650;12..96,700;12..96,800&family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="site/style.css">
 </head>
 <body>
@@ -131,10 +131,10 @@
                 <th scope="col">Split</th>
                 <th scope="col">Seasons</th>
                 <th scope="col">Matches</th>
-                <th scope="col">Over Rows</th>
-                <th scope="col">Mean Target</th>
-                <th scope="col">Chase Win %</th>
-                <th scope="col">Role in Pipeline</th>
+                <th scope="col">Overs</th>
+                <th scope="col">Avg Target</th>
+                <th scope="col">Win %</th>
+                <th scope="col" class="wrap-cell">Role in Pipeline</th>
               </tr>
             </thead>
             <tbody>
@@ -179,7 +179,7 @@
               <tr>
                 <th scope="col">Group</th>
                 <th scope="col">#</th>
-                <th scope="col">Variables &amp; Role</th>
+                <th scope="col" class="wrap-cell">Variables &amp; Role</th>
               </tr>
             </thead>
             <tbody>
@@ -444,7 +444,7 @@
         <thead>
           <tr>
             <th scope="col">Model / Baseline</th>
-            <th scope="col">Specification &amp; Tuned Hyperparameters</th>
+            <th scope="col" class="wrap-cell">Specification &amp; Tuned Hyperparameters</th>
             <th scope="col">Val Log Loss</th>
             <th scope="col">95% Match CI</th>
             <th scope="col">Val Brier</th>
@@ -666,13 +666,13 @@
               <th scope="col">Mean Model <i>p&#770;</i></th>
               <th scope="col">Model Log Loss</th>
               <th scope="col">Rule B Log Loss</th>
-              <th scope="col">Why the Model Was Wrong &amp; Worst Single Over</th>
+              <th scope="col" class="wrap-cell">Why the Model Was Wrong &amp; Worst Single Over</th>
               <th scope="col">Inspect</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td><b>15 Apr 2025</b><br>KKR vs PBKS</td>
+              <td><b>15 Apr 2025</b> &middot; KKR vs PBKS</td>
               <td>Mullanpur</td>
               <td>112</td>
               <td>Lost (95 all out)</td>
@@ -683,7 +683,7 @@
               <td><button type="button" class="btn-jump" data-jump-match="1473468">Load in Explorer &uarr;</button></td>
             </tr>
             <tr>
-              <td><b>24 Mar 2025</b><br>DC vs LSG</td>
+              <td><b>24 Mar 2025</b> &middot; DC vs LSG</td>
               <td>Visakhapatnam</td>
               <td>210</td>
               <td>Won (211/9)</td>
@@ -694,7 +694,7 @@
               <td><button type="button" class="btn-jump" data-jump-match="1473441">Load in Explorer &uarr;</button></td>
             </tr>
             <tr>
-              <td><b>11 May 2026</b><br>DC vs PBKS</td>
+              <td><b>11 May 2026</b> &middot; DC vs PBKS</td>
               <td>Dharamsala</td>
               <td>211</td>
               <td>Won</td>
@@ -705,7 +705,7 @@
               <td><button type="button" class="btn-jump" data-jump-match="1529298">Load in Explorer &uarr;</button></td>
             </tr>
             <tr>
-              <td><b>19 Apr 2025</b><br>RR vs LSG</td>
+              <td><b>19 Apr 2025</b> &middot; RR vs LSG</td>
               <td>Jaipur</td>
               <td>181</td>
               <td>Lost (178/5)</td>
@@ -716,7 +716,7 @@
               <td><button type="button" class="btn-jump" data-jump-match="1473473">Load in Explorer &uarr;</button></td>
             </tr>
             <tr>
-              <td><b>09 Apr 2026</b><br>LSG vs KKR</td>
+              <td><b>09 Apr 2026</b> &middot; LSG vs KKR</td>
               <td>Kolkata</td>
               <td>182</td>
               <td>Won</td>
@@ -727,7 +727,7 @@
               <td><button type="button" class="btn-jump" data-jump-match="1527688">Load in Explorer &uarr;</button></td>
             </tr>
             <tr>
-              <td><b>27 May 2025</b><br>RCB vs LSG</td>
+              <td><b>27 May 2025</b> &middot; RCB vs LSG</td>
               <td>Lucknow</td>
               <td>228</td>
               <td>Won (230/4)</td>
