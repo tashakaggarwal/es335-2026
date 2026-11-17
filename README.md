@@ -2,7 +2,7 @@
 
 Predicts the calibrated probability that the chasing team wins an Indian Premier League (IPL) match, given the state of the chase at the end of each completed over. Built for **ES 335 (Machine Learning)** by **Tashak Aggarwal**.
 
-> **Author:** Tashak Aggarwal  
+> **Author:** Tashak Aggarwal (Roll No. 25110321)  
 > **Course:** ES 335 — Machine Learning (Undergraduate Track)  
 > **Live Website:** [https://tashakaggarwal.github.io/es335-2026/](https://tashakaggarwal.github.io/es335-2026/)  
 > **Repository:** [https://github.com/tashakaggarwal/es335-2026](https://github.com/tashakaggarwal/es335-2026)

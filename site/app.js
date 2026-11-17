@@ -157,7 +157,7 @@ function fillText() {
   $("limits-list").replaceChildren(...lim.map((t) => { const li = document.createElement("li"); li.textContent = t; return li; }));
   const f = $("footer"); f.replaceChildren();
   const p = document.createElement("p");
-  p.append("Built for ES 335 (Machine Learning)" + (m.author ? " by " + m.author : "") + ". Ball-by-ball data from ");
+  p.append("Built for ES 335 (Machine Learning) by " + (m.author || "Tashak Aggarwal") + " (Roll No. 25110321). Ball-by-ball data from ");
   const a = document.createElement("a"); a.href = "https://cricsheet.org/"; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Cricsheet (CC BY 4.0)"; p.append(a, ". ");
   if (m.repo) {
     const r = document.createElement("a"); r.href = m.repo; r.target = "_blank"; r.rel = "noopener"; r.textContent = "GitHub Repository (Code, Notebooks, Splits & README)";
