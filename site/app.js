@@ -1133,29 +1133,78 @@ function drawLiveState() {
   const sp = document.createElement("div"); sp.className = "split"; sp.style.background = bCol;
   const i = document.createElement("i"); i.style.width = (o.p * 100).toFixed(1) + "%"; i.style.background = cCol; sp.appendChild(i); s.appendChild(sp);
 
-  add("h3", "", "Computed statistics");
-  const dl = document.createElement("dl");
-  const row = (k, v) => { const dt = document.createElement("dt"); dt.textContent = k; const dd = document.createElement("dd"); dd.textContent = v; dl.append(dt, dd); };
+  add("h3", "live-stats-heading", "Computed statistics");
+  const groupsWrap = document.createElement("div");
+  groupsWrap.className = "live-stat-groups";
+
+  const makeGroup = (title, items) => {
+    const card = document.createElement("div");
+    card.className = "live-stat-card";
+    const h = document.createElement("div");
+    h.className = "live-stat-head";
+    h.textContent = title;
+    card.appendChild(h);
+    const dl = document.createElement("dl");
+    dl.className = "live-stat-dl";
+    items.forEach(([k, parts]) => {
+      const rowDiv = document.createElement("div");
+      rowDiv.className = "live-stat-row";
+      const dt = document.createElement("dt");
+      dt.textContent = k;
+      const dd = document.createElement("dd");
+      const arr = Array.isArray(parts) ? parts : [parts];
+      arr.forEach((pText, idx) => {
+        if (idx > 0) {
+          const sep = document.createElement("span");
+          sep.className = "stat-dot";
+          sep.textContent = "·";
+          dd.appendChild(sep);
+        }
+        const span = document.createElement("span");
+        span.className = idx === 0 ? "stat-main" : "stat-sub";
+        span.textContent = pText;
+        dd.appendChild(span);
+      });
+      rowDiv.append(dt, dd);
+      dl.appendChild(rowDiv);
+    });
+    card.appendChild(dl);
+    groupsWrap.appendChild(card);
+  };
+
   const parDiffStr = (o.par_score_diff >= 0 ? "+" : "") + f2(o.par_score_diff, 1);
   const vParDiffStr = (ctx.target_vs_venue_par >= 0 ? "+" : "") + f2(ctx.target_vs_venue_par, 1);
-  const phaseLabel = o.is_powerplay ? ("Powerplay (" + o.powerplay_balls_left + "b left)") : o.is_death ? "Death overs (15-20)" : "Middle overs (7-14)";
-  row("Needs", o.need + " off " + o.balls + " balls (" + Math.round(o.runs_needed_frac * 100) + "% of target)");
-  row("Current / req. rate", f2(o.crr) + " / " + f2(o.rrr) + " (gap " + (o.rrd >= 0 ? "+" : "") + f2(o.rrd) + ")");
-  row("DLS resources & par", f2(o.dls_resources, 1) + "% left | " + parDiffStr + " vs DLS par (" + f2(o.runs_needed_per_wicket, 1) + " R/wkt)");
-  row("Match phase", phaseLabel);
-  row("Last 3 overs", o.runs_last_3 + "R, " + o.wkts_last_3 + "W, " + o.bounds_last_3 + "x4/6 (accel " + (o.accel >= 0 ? "+" : "") + f2(o.accel) + ")");
-  row("Partnership", o.bslw + "b since wkt | " + o.bat_runs_sum + "R by pair at crease");
-  row("At the crease", b1.name + " (" + o.bat1_balls + "b, SR " + f2(b1.sr, 1) + ") & " + b2.name + " (" + o.bat2_balls + "b, SR " + f2(b2.sr, 1) + ")");
-  row("Batter metrics", "Mean SR " + f2(o.bat_sr_mean, 1) + " | BPD " + f2(o.bat_bpd_mean, 1) + " | Settled x SR " + f2(o.settled_sr_interaction, 1));
-  row("Dugout depth", o.rem_bat_n + " batters left | Top-3 avg sum " + f2(o.rem_bat_quality, 1) + " (SR " + f2(o.rem_bat_sr, 1) + ")");
-  row("Bowler (Over " + o.over + ")", bwSlot.name + " (" + bwOvers + "/4 ov, Econ " + f2(bwSlot.econ, 2) + ")");
-  row("Bowling attack", "Rem. econ " + f2(o.bowl_rem_econ, 2) + " | Top-2 overs left " + f2(o.best_bowler_overs_left, 1));
-  row("Venue record", LIVE.venue.split(",")[0] + " (chase win " + f2(ctx.venue_rate * 100, 1) + "%)");
-  row("Home edge", homeLabel + " (" + (ctx.home_edge >= 0 ? "+" : "") + f2(ctx.home_edge, 3) + ")");
-  row("Target vs par", vParDiffStr + " vs venue par (" + f2(ctx.venue_par, 1) + ") | " + diffStr + " vs season avg");
-  row("Team form (last 5)", "Chaser " + f2(ctx.chaser_form, 2) + " (" + ctx.chaser_wins + "/5), Bowler " + f2(ctx.bowler_form, 2) + " (" + ctx.bowler_wins + "/5)");
-  row("Run-rate rule", o.pB > 0.5 ? "Ahead/on rate (" + pct(o.pB) + "%)" : "Behind rate (" + pct(o.pB) + "%)");
-  s.appendChild(dl);
+  const phaseLabel = o.is_powerplay ? ("Powerplay (" + o.powerplay_balls_left + "b left)") : o.is_death ? "Death overs (15–20)" : "Middle overs (7–14)";
+
+  makeGroup("Chase Rates & DLS State", [
+    ["Needs", [o.need + " off " + o.balls + " balls", Math.round(o.runs_needed_frac * 100) + "% of target"]],
+    ["Current / req. rate", [f2(o.crr) + " / " + f2(o.rrr), "gap " + (o.rrd >= 0 ? "+" : "") + f2(o.rrd)]],
+    ["DLS resources & par", [f2(o.dls_resources, 1) + "% left", parDiffStr + " vs DLS par", f2(o.runs_needed_per_wicket, 1) + " R/wkt"]],
+    ["Run-rate rule", [o.pB > 0.5 ? "Ahead/on rate (" + pct(o.pB) + "%)" : "Behind rate (" + pct(o.pB) + "%)"]],
+  ]);
+
+  makeGroup("Phase, Momentum & Partnership", [
+    ["Match phase", [phaseLabel]],
+    ["Last 3 overs", [o.runs_last_3 + "R, " + o.wkts_last_3 + "W, " + o.bounds_last_3 + "×4/6", "accel " + (o.accel >= 0 ? "+" : "") + f2(o.accel)]],
+    ["Partnership", [o.bslw + "b since wkt", o.bat_runs_sum + "R by pair at crease"]],
+  ]);
+
+  makeGroup("Batting Crease & Dugout", [
+    ["At the crease", [b1.name + " (" + o.bat1_balls + "b, SR " + f2(b1.sr, 1) + ")", b2.name + " (" + o.bat2_balls + "b, SR " + f2(b2.sr, 1) + ")"]],
+    ["Batter metrics", ["Mean SR " + f2(o.bat_sr_mean, 1), "BPD " + f2(o.bat_bpd_mean, 1), "Settled×SR " + f2(o.settled_sr_interaction, 1)]],
+    ["Dugout depth", [o.rem_bat_n + " batters left", "Top-3 avg sum " + f2(o.rem_bat_quality, 1) + " (SR " + f2(o.rem_bat_sr, 1) + ")"]],
+  ]);
+
+  makeGroup("Bowling, Venue & Team Form", [
+    ["Bowler (Over " + o.over + ")", [bwSlot.name, bwOvers + "/4 ov, Econ " + f2(bwSlot.econ, 2)]],
+    ["Bowling attack", ["Rem. econ " + f2(o.bowl_rem_econ, 2), "Top-2 overs left " + f2(o.best_bowler_overs_left, 1)]],
+    ["Venue record", [LIVE.venue.split(",")[0], "chase win " + f2(ctx.venue_rate * 100, 1) + "%"]],
+    ["Home edge", [homeLabel, (ctx.home_edge >= 0 ? "+" : "") + f2(ctx.home_edge, 3)]],
+    ["Target vs par", [vParDiffStr + " vs venue par (" + f2(ctx.venue_par, 1) + ")", diffStr + " vs season avg"]],
+    ["Team form (last 5)", ["Chaser " + f2(ctx.chaser_form, 2) + " (" + ctx.chaser_wins + "/5)", "Bowler " + f2(ctx.bowler_form, 2) + " (" + ctx.bowler_wins + "/5)"]],
+  ]);
+
+  s.appendChild(groupsWrap);
 }
 
 function drawLiveLog() {
