@@ -68,16 +68,16 @@
   <div class="wrap">
     <div class="section-head">
       <span class="kicker">1. Problem Formulation, Data &amp; Preprocessing</span>
-      <h2 id="overview-h">The Question, the Data &amp; Why We Preprocessed It This Way</h2>
-      <p class="intro">Everything needed to judge the framing of the problem, what one row represents, how the Cricsheet ball-by-ball archive was cleaned and split chronologically, and why specific domain transformations were chosen.</p>
+      <h2 id="overview-h">The Question, the Data &amp; Preprocessing</h2>
+      <p class="intro">Framing the prediction task, what one row represents, how the Cricsheet archive was cleaned and split chronologically, and why each domain transformation was chosen.</p>
     </div>
 
     <div class="stat-chips" aria-label="Dataset summary statistics">
-      <div class="stat-chip"><div class="chip-val">1,243 &rarr; 1,185</div><div class="chip-lbl">Raw JSON files &rarr; Kept matches</div></div>
+      <div class="stat-chip"><div class="chip-val">1,243 &rarr; 1,185</div><div class="chip-lbl">Raw JSONs &rarr; Kept matches</div></div>
       <div class="stat-chip"><div class="chip-val">21,251</div><div class="chip-lbl">2nd-innings chase over rows</div></div>
-      <div class="stat-chip"><div class="chip-val">19 Seasons</div><div class="chip-lbl">2008–2023 Train | 2024 Val | 2025–26 Test</div></div>
-      <div class="stat-chip"><div class="chip-val">39 &rarr; 11</div><div class="chip-lbl">Candidate features &rarr; Selected parsimonious set</div></div>
-      <div class="stat-chip"><div class="chip-val">0.3815 vs 0.5396</div><div class="chip-lbl">Test Log Loss: Final LR vs Run-Rate Rule</div></div>
+      <div class="stat-chip"><div class="chip-val">19 Seasons</div><div class="chip-lbl">2008–23 Train | 2024 Val | 2025–26 Test</div></div>
+      <div class="stat-chip"><div class="chip-val">39 &rarr; 11</div><div class="chip-lbl">Engineered &rarr; Selected features</div></div>
+      <div class="stat-chip"><div class="chip-val">0.3815 vs 0.5396</div><div class="chip-lbl">Test Log Loss: Model vs Rule B</div></div>
     </div>
 
     <div class="grid-3">
@@ -85,25 +85,23 @@
         <h3>The Question &amp; Unit of Analysis</h3>
         <dl class="plain">
           <dt>Research Question</dt>
-          <dd>Given the state of an IPL run chase after each completed over, how much probabilistic accuracy (measured by log loss and calibration) does a learned model add over the broadcast heuristic <em>&ldquo;win if current run rate &ge; required run rate&rdquo;</em>, and does that edge survive the 2024–2026 scoring inflation?</dd>
-          <dt>What One Row Represents</dt>
-          <dd>One row is the exact snapshot of a regular second-innings chase at the <b>end of completed over <i>o</i> &isin; {1, &hellip;, 19}</b> (before the 20th over starts or the chase finishes earlier).</dd>
-          <dt>Target Variable &amp; Output</dt>
-          <dd><span class="code-tag">chasing_team_won &isin; {0, 1}</span> (1 if the chasing team wins the match, 0 otherwise). The model outputs a calibrated probability <i>p&#770;</i> &isin; (0, 1), not a binary label.</dd>
-          <dt>Prediction-Time Information Boundary</dt>
-          <dd>Predictions are made immediately after the final delivery of completed over <i>o</i>. Available information is strictly limited to pre-match context from dates prior to the match, the first-innings target, deliveries up to over <i>o</i>, and the incoming batter at the crease for over <i>o + 1</i>—never any future delivery or outcome.</dd>
+          <dd>How much probabilistic accuracy (log loss &amp; calibration) does a learned model add over the broadcast heuristic (<span class="code-tag">CRR &ge; RRR</span>), and does it stay calibrated under the 2024–2026 scoring surge?</dd>
+          <dt>One Row &amp; Target</dt>
+          <dd>State of a second-innings chase at the <b>end of completed over <i>o</i> &isin; {1..19}</b>. Target: <span class="code-tag">chasing_team_won &isin; {0, 1}</span>; output: calibrated <i>p&#770;</i> &isin; (0, 1).</dd>
+          <dt>Prediction-Time Information</dt>
+          <dd>Strictly pre-match history prior to match date, 1st-innings target, deliveries up to over <i>o</i>, and the incoming batter for over <i>o + 1</i>.</dd>
         </dl>
       </div>
 
       <div class="card-panel">
-        <h3>Data Source, Size &amp; Exclusions</h3>
+        <h3>Data Source, Size &amp; Quality</h3>
         <dl class="plain">
           <dt>Source &amp; Volume</dt>
-          <dd><a href="https://cricsheet.org/" target="_blank" rel="noopener">Cricsheet</a> ball-by-ball JSON files for the IPL (2008–2026). Out of <b>1,243</b> raw files parsed by <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/scripts/parse_cricsheet.py" target="_blank" rel="noopener"><span class="code-tag">scripts/parse_cricsheet.py</span></a>, we keep <b>1,185</b> completed regular chases yielding <b>21,251</b> second-innings over states (plus <b>22,438</b> first-innings states used strictly on training seasons to fit the empirical DLS curve).</dd>
-          <dt>58 Excluded Matches (Logged)</dt>
-          <dd>Every excluded file is recorded with a reason in <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/data/parsed/match_log.csv" target="_blank" rel="noopener"><span class="code-tag">data/parsed/match_log.csv</span></a>: <b>25</b> ties/super-overs or no-results (<span class="code-tag">tie_or_no_result</span>), <b>23</b> rain-interrupted DLS matches (<span class="code-tag">dls_applied</span>), and <b>10</b> shortened matches (<span class="code-tag">reduced_overs</span>).</dd>
+          <dd><a href="https://cricsheet.org/" target="_blank" rel="noopener">Cricsheet</a> IPL ball-by-ball JSONs (2008–2026): <b>1,185</b> regular chases (<b>21,251</b> 2nd-innings over rows; <b>22,438</b> 1st-innings rows for training DLS). See <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/scripts/parse_cricsheet.py" target="_blank" rel="noopener"><span class="code-tag">parse_cricsheet.py</span></a>.</dd>
+          <dt>58 Excluded Matches (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/data/parsed/match_log.csv" target="_blank" rel="noopener"><span class="code-tag">match_log.csv</span></a>)</dt>
+          <dd><b>25</b> ties/no-results, <b>23</b> rain-affected DLS chases, and <b>10</b> shortened matches (&lt;20 overs).</dd>
           <dt>Quality Issues Resolved</dt>
-          <dd>(1) <b>Era shift:</b> mean targets jumped from 165.8 (train) to 195.4 (test). (2) <b>Entity drift:</b> 60 raw stadium spellings were unified into 36 canonical grounds, and renamed franchises (e.g., <em>Delhi Daredevils &rarr; Delhi Capitals</em>, <em>Kings XI Punjab &rarr; Punjab Kings</em>) were mapped. (3) <b>Ball accounting:</b> wides/no-balls add runs without consuming legal balls; <span class="code-tag">retired hurt</span> is not a wicket; crease batters at over-end are read from the first ball of the next over (showing who is present, never future outcomes).</dd>
+          <dd>(1) <b>Scoring inflation:</b> mean target rose from 165.8 to 195.4. (2) <b>Entity drift:</b> 60 venue names unified into 36 grounds; renamed teams mapped. (3) <b>Ball rules:</b> wides/no-balls &amp; <span class="code-tag">retired hurt</span> handled accurately.</dd>
         </dl>
       </div>
 
@@ -111,21 +109,18 @@
         <h3>Preprocessing Choices &amp; Why</h3>
         <dl class="plain">
           <dt>1. Era-Adjusted Target (<span class="code-tag">target_vs_venue_par</span>)</dt>
-          <dd>Raw <span class="code-tag">target</span> fails under scoring inflation (200 in 2012 was near-impossible; in 2025 it is par). Subtracting the past-only venue average target (shrunk toward the 30-match rolling league par) reduces out-of-range test rows to <b>0.8%</b>.</dd>
+          <dd>Raw <span class="code-tag">target</span> shifts across eras; subtracting past-only venue par reduces out-of-range test rows to <b>0.8%</b>.</dd>
           <dt>2. Empirical Exponential DLS Curve</dt>
-          <dd>Linear <span class="code-tag">balls_left &times; wickets_in_hand</span> treats all overs and wickets as interchangeable. We fit a Duckworth–Lewis–Stern curve <i>Z(u, w) = Z<sub>0</sub>(w)[1 &minus; e<sup>&minus;b(w)u</sup>]</i> strictly on 2008–2023 first innings (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/data/features/dls_params.json" target="_blank" rel="noopener"><span class="code-tag">dls_params.json</span></a>) to compute non-linear <span class="code-tag">dls_resources</span> and <span class="code-tag">par_score_diff</span>.</dd>
-          <dt>3. Capping <span class="code-tag">required_run_rate</span> at 36.0</dt>
-          <dd>36 runs/over is six sixes off six legal balls. Uncapped late ratios (e.g., 30 needed off 1 ball &rarr; RRR = 180) create extreme leverage points that distort linear weights.</dd>
-          <dt>4. Empirical Bayes Shrinkage &amp; Recency Weights</dt>
-          <dd>Debutant/small-sample player strike rates (shrunk toward 125 over 60 pseudo-balls), balls/dismissal (toward 18), venue chase rates (toward league mean), and 5-match form (toward 0.5) prevent noisy extremes. Exponential season weights <i>w = e<sup>&minus;0.08(max_season &minus; season)</sup></i> prioritize modern T20 dynamics.</dd>
+          <dd>Non-linear <span class="code-tag">dls_resources</span> and <span class="code-tag">par_score_diff</span> fit strictly on 2008–2023 1st innings (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/data/features/dls_params.json" target="_blank" rel="noopener"><span class="code-tag">dls_params.json</span></a>) replace linear <span class="code-tag">balls &times; wickets</span>.</dd>
+          <dt>3. Cap RRR &amp; Shrink Small Samples</dt>
+          <dd><span class="code-tag">required_run_rate</span> capped at 36.0; player/venue/form priors shrunk via Empirical Bayes; recency weights (<span class="code-tag">&lambda; = 0.08</span>) applied.</dd>
         </dl>
       </div>
     </div>
 
     <div class="method-grid" style="margin-top:20px">
       <div class="card-panel">
-        <h3>Chronological Split by Season (Zero Match Leakage)</h3>
-        <p class="note" style="margin-bottom:10px">Splitting randomly by row would put Over 10 of a match in Train and Over 11 of the same match in Test, leaking the match trajectory. We split strictly by calendar season (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/scripts/data_split.py" target="_blank" rel="noopener"><span class="code-tag">scripts/data_split.py</span></a>) and keep all overs of a match in the same fold:</p>
+        <h3>Chronological Split by Season (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/scripts/data_split.py" target="_blank" rel="noopener"><span class="code-tag">data_split.py</span></a>)</h3>
         <div class="table-scroll">
           <table class="compact-table">
             <thead>
@@ -156,7 +151,7 @@
                 <td>1,239</td>
                 <td>191.1</td>
                 <td>51.4%</td>
-                <td class="wrap-cell">Compare model families &amp; feature ladder (0.003 rule)</td>
+                <td class="wrap-cell">Model &amp; feature-ladder selection (0.003 rule)</td>
               </tr>
               <tr class="final">
                 <td><b>Test</b></td>
@@ -173,8 +168,7 @@
       </div>
 
       <div class="card-panel">
-        <h3>Key Variables: 10 Feature Groups (39 Engineered &rarr; 11 Selected)</h3>
-        <p class="note" style="margin-bottom:10px">Full definitions live in <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/data/features/feature_dictionary.csv" target="_blank" rel="noopener"><span class="code-tag">feature_dictionary.csv</span></a> (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/02_features.ipynb" target="_blank" rel="noopener">Notebook 02</a>). Groups <b>core + derived (11 features)</b> form the selected final model (<span class="code-tag">B +derived</span>); all 39 features power the interactive Live Match Predictor below:</p>
+        <h3>Feature Groups: 39 Engineered &rarr; 11 Selected (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/data/features/feature_dictionary.csv" target="_blank" rel="noopener"><span class="code-tag">feature_dictionary.csv</span></a>)</h3>
         <div class="table-scroll">
           <table class="compact-table">
             <thead>
@@ -188,7 +182,7 @@
               <tr class="final">
                 <td><b>core</b> <span class="badge-selected">Final 11</span></td>
                 <td>6</td>
-                <td class="wrap-cell"><span class="code-tag">runs_so_far</span>, <span class="code-tag">target_vs_venue_par</span>, <span class="code-tag">wickets_lost</span>, <span class="code-tag">balls_left</span>, <span class="code-tag">current_run_rate</span>, <span class="code-tag">required_run_rate</span> (capped at 36)</td>
+                <td class="wrap-cell"><span class="code-tag">runs_so_far</span>, <span class="code-tag">target_vs_venue_par</span>, <span class="code-tag">wickets_lost</span>, <span class="code-tag">balls_left</span>, <span class="code-tag">current_run_rate</span>, <span class="code-tag">required_run_rate</span></td>
               </tr>
               <tr class="final">
                 <td><b>derived</b> <span class="badge-selected">Final 11</span></td>
@@ -198,17 +192,17 @@
               <tr>
                 <td><b>phase &amp; momentum</b></td>
                 <td>8</td>
-                <td class="wrap-cell"><span class="code-tag">is_powerplay</span>, <span class="code-tag">is_death</span>, <span class="code-tag">powerplay_balls_left</span>; 3-over window (<span class="code-tag">runs_last_3</span>, <span class="code-tag">wkts_last_3</span>, <span class="code-tag">boundaries_last_3</span>, <span class="code-tag">acceleration</span>, <span class="code-tag">balls_since_last_wicket</span>)</td>
+                <td class="wrap-cell">Powerplay/death flags &amp; 3-over window (<span class="code-tag">runs_last_3</span>, <span class="code-tag">wkts_last_3</span>, <span class="code-tag">boundaries_last_3</span>, <span class="code-tag">acceleration</span>)</td>
               </tr>
               <tr>
-                <td><b>batters, bowling, impact</b></td>
+                <td><b>batters, bowl, impact</b></td>
                 <td>12</td>
-                <td class="wrap-cell">Crease pair SR/BPD/settledness (<span class="code-tag">bat_sr_mean</span>, <span class="code-tag">bat_bpd_mean</span>, <span class="code-tag">bat_balls_max</span>, <span class="code-tag">bat_runs_sum</span>, <span class="code-tag">settled_sr_interaction</span>), dugout top-3 (<span class="code-tag">rem_bat_quality</span>, <span class="code-tag">rem_bat_sr</span>), remaining quota bowling (<span class="code-tag">bowl_rem_econ</span>, <span class="code-tag">bowl_rem_wkt_rate</span>, <span class="code-tag">best_bowler_overs_left</span>), Impact Player flags</td>
+                <td class="wrap-cell">Crease SR/BPD, dugout top-3 quality, remaining bowling economy/quotas, Impact Player flags</td>
               </tr>
               <tr>
                 <td><b>history, home, form</b></td>
                 <td>8</td>
-                <td class="wrap-cell"><span class="code-tag">target_vs_season_avg</span>, <span class="code-tag">target_vs_recent_par</span>, <span class="code-tag">venue_chase_rate</span>, <span class="code-tag">chasing_team_home</span>, <span class="code-tag">bowling_team_home</span>, <span class="code-tag">home_edge</span>, shrunk last-5 <span class="code-tag">chaser_form</span> &amp; <span class="code-tag">bowler_form</span></td>
+                <td class="wrap-cell">Season/recent par, venue chase rate, home edge, and shrunk last-5 team form (used in Live UI)</td>
               </tr>
             </tbody>
           </table>
@@ -404,61 +398,54 @@
 <section id="method" aria-labelledby="method-h">
   <div class="wrap">
     <div class="section-head">
-      <span class="kicker">5. Baselines, Candidate Models &amp; Validation Selection (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/03_baselines_and_models.ipynb" target="_blank" rel="noopener">Notebook 03 ↗</a>)</span>
-      <h2 id="method-h">Models Compared, Evaluation Protocol &amp; Feature Selection</h2>
-      <p class="intro">Before touching the 2025–2026 test seasons, three baselines and four machine learning architectures were tuned via 5-fold <span class="code-tag">GroupKFold</span> on 2008–2023 and compared on the 2024 validation season (70 matches, 1,239 over states).</p>
+      <span class="kicker">5. Baselines, Models &amp; Validation Selection (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/03_baselines_and_models.ipynb" target="_blank" rel="noopener">Notebook 03 ↗</a>)</span>
+      <h2 id="method-h">Models Compared &amp; Evaluation Protocol</h2>
+      <p class="intro">Three baselines and four ML model families were tuned via 5-fold <span class="code-tag">GroupKFold</span> on 2008–2023 and compared on the 2024 validation season (70 matches, 1,239 over states).</p>
     </div>
 
     <div class="method-grid">
       <div class="card-panel">
-        <h3>Evaluation Metrics &amp; Uncertainty Protocol</h3>
+        <h3>Metrics, Bootstrap &amp; Selection Rule</h3>
         <dl class="plain">
-          <dt>Primary Metric: Log Loss (Cross-Entropy)</dt>
-          <dd>Because our goal is a <b>calibrated probability</b> rather than a binary decision, log loss is the primary proper scoring rule: it heavily penalizes confident wrong predictions (e.g., predicting 98% when a team collapses). Probabilities are clipped to <span class="code-tag">[10<sup>&minus;6</sup>, 1 &minus; 10<sup>&minus;6</sup>]</span>.</dd>
-          <dt>Secondary Metrics: Brier Score &amp; Accuracy</dt>
-          <dd><b>Brier score</b> measures mean squared probability error <span class="code-tag">mean((p&#770; &minus; y)<sup>2</sup>)</span>. <b>Accuracy</b> (<span class="code-tag">p&#770; &ge; 0.5</span>) is reported for interpretability, though late overs are mostly decided and flatter all models.</dd>
+          <dt>Metrics: Log Loss (Primary), Brier &amp; Accuracy</dt>
+          <dd><b>Log loss</b> rewards calibrated probabilities and penalizes confident errors. <b>Brier score</b> and <b>accuracy</b> (<span class="code-tag">p&#770; &ge; 0.5</span>) serve as secondary checks.</dd>
           <dt>Match-Cluster Bootstrap (2,000 Replicates)</dt>
-          <dd>The 19 overs of a single match are strongly correlated; treating rows as independent dramatically understates uncertainty. All 95% confidence intervals and paired differences vs. Baseline B resample <b>whole matches</b> (<span class="code-tag">N_BOOT = 2000</span>).</dd>
-          <dt>Pre-Registered Parsimony Selection Rule</dt>
-          <dd>Comparing ~18 model and feature-stage candidates on a single 70-match validation season invites selection optimism (winner&rsquo;s curse). We fixed our selection rule in advance: pick the <b>simplest candidate</b> (fewest features, linear before trees) within <b>0.003 validation log loss</b> of the overall best.</dd>
+          <dd>Because the 19 overs of a match share one outcome, all 95% CIs and paired comparisons vs. Rule B resample <b>whole matches</b>.</dd>
+          <dt>Pre-Registered 0.003 Parsimony Rule</dt>
+          <dd>To limit winner&rsquo;s-curse optimism across 70 validation matches, we pick the <b>simplest candidate</b> (fewest features, linear before trees) within <b>0.003 log loss</b> of the validation best.</dd>
         </dl>
       </div>
 
       <div class="card-panel">
-        <h3>Data Leakage Controls &amp; Reproducibility</h3>
+        <h3>Leakage Controls &amp; Profiling Note</h3>
         <dl class="plain">
-          <dt>Chronological Splits &amp; Match Grouping</dt>
-          <dd>Train (2008–2023), Validation (2024), and Test (2025–2026) are separated strictly by calendar year. Hyperparameter tuning uses 5-fold <span class="code-tag">GroupKFold(groups=match_id)</span>; gradient boosting runs with <span class="code-tag">early_stopping=False</span> because built-in early stopping splits randomly by row.</dd>
-          <dt>Brute-Force Verified Past-Only Features</dt>
-          <dd>All historical features (batter SR/BPD, bowler economy, venue par/chase rate, home edge, 5-match form) exclude same-day and future matches—verified against a brute-force recomputation across 60 sampled matches in <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/02_features.ipynb" target="_blank" rel="noopener">Notebook 02</a> with <b>0 disagreements</b>.</dd>
-          <dt>In-Fold Preprocessing &amp; Out-of-Fold Calibration</dt>
-          <dd><span class="code-tag">SimpleImputer(strategy="median")</span> and <span class="code-tag">StandardScaler()</span> live inside scikit-learn <span class="code-tag">Pipeline</span> objects so statistics are refitted inside every CV fold. Platt and isotonic recalibrators are fit strictly on out-of-fold training predictions.</dd>
-          <dt>Single-Shot Locked Test &amp; Profiling Honesty Note</dt>
-          <dd>Notebooks 01 and 03 assert <span class="code-tag">season &lt; 2025</span>, and <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/04_final_test.ipynb" target="_blank" rel="noopener">Notebook 04</a> writes a lock file (<span class="code-tag">test_results.json</span>) after one run. <b>Honesty note:</b> while no model tuning or selection ever touched 2025–2026 rows, aggregate season-level match counts and average target scores across the parsed Cricsheet archive (the 2024–2026 scoring surge) were seen during initial dataset profiling, motivating scale-free and par-normalized features.</dd>
+          <dt>Past-Only History &amp; In-Fold Pipelines</dt>
+          <dd>Historical features use matches strictly prior to match date (verified on 60 random matches in <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/02_features.ipynb" target="_blank" rel="noopener">NB 02</a> with <b>0 disagreements</b>). Median imputation and scaling run inside CV <span class="code-tag">Pipeline</span> folds; trees use <span class="code-tag">early_stopping=False</span>.</dd>
+          <dt>Locked Test Set &amp; Honesty Note</dt>
+          <dd>Notebooks 01/03 assert <span class="code-tag">season &lt; 2025</span>; <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/04_final_test.ipynb" target="_blank" rel="noopener">NB 04</a> locks <span class="code-tag">test_results.json</span> after one run. <b>Honesty note:</b> aggregate season target averages were seen during initial profiling, motivating par-normalized features.</dd>
         </dl>
       </div>
     </div>
 
-    <h3 class="sub-heading">2024 Validation Benchmark: Baselines vs. Candidate Models (70 Matches, 1,239 Over States)</h3>
-    <p class="note" style="margin-bottom:10px">Source: <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/validation_table.csv" target="_blank" rel="noopener"><span class="code-tag">results/validation_table.csv</span></a>. Baselines and models are trained on 2008–2023 with exponential recency weights (<span class="code-tag">&lambda; = 0.08</span>). Candidate models in the main comparison use the 19-feature <span class="code-tag">C +phase+momentum</span> set, followed by the 7-stage feature ladder below:</p>
+    <h3 class="sub-heading">2024 Validation Benchmark (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/validation_table.csv" target="_blank" rel="noopener"><span class="code-tag">results/validation_table.csv</span></a>)</h3>
     <div class="table-scroll">
       <table class="compact-table">
         <thead>
           <tr>
             <th scope="col">Model / Baseline</th>
-            <th scope="col" class="wrap-cell">Specification &amp; Tuned Hyperparameters</th>
+            <th scope="col" class="wrap-cell">Specification</th>
             <th scope="col">Val Log Loss</th>
             <th scope="col">95% Match CI</th>
             <th scope="col">Val Brier</th>
             <th scope="col">Val Accuracy</th>
             <th scope="col">Diff vs Rule B (95% CI)</th>
-            <th scope="col">P(Better than B)</th>
+            <th scope="col">P(Better)</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td><b>A: Constant rate</b></td>
-            <td class="wrap-cell">Predicts training chase win rate (<span class="code-tag">p = 0.526</span>) for every over</td>
+            <td class="wrap-cell">Training chase win rate (<span class="code-tag">p = 0.526</span>)</td>
             <td>0.6958</td>
             <td>[0.6835, 0.7075]</td>
             <td>0.2513</td>
@@ -467,8 +454,8 @@
             <td>0.0%</td>
           </tr>
           <tr>
-            <td><b>A2: Empirical by-over rate</b></td>
-            <td class="wrap-cell">Training win rate for each over number <span class="code-tag">o &isin; {1..19}</span></td>
+            <td><b>A2: By-over rate</b></td>
+            <td class="wrap-cell">Empirical training win rate per over <span class="code-tag">o &isin; {1..19}</span></td>
             <td>0.6923</td>
             <td>[0.6795, 0.7045]</td>
             <td>0.2496</td>
@@ -478,7 +465,7 @@
           </tr>
           <tr>
             <td><b>B: Run-rate rule (<span class="code-tag">CRR &ge; RRR</span>)</b></td>
-            <td class="wrap-cell">Two training rates: <span class="code-tag">P(win | ahead) = 0.851</span>, <span class="code-tag">P(win | behind) = 0.370</span></td>
+            <td class="wrap-cell"><span class="code-tag">P(win | ahead) = 0.851</span>, <span class="code-tag">P(win | behind) = 0.370</span></td>
             <td>0.5522</td>
             <td>[0.4927, 0.6112]</td>
             <td>0.1838</td>
@@ -487,8 +474,8 @@
             <td>&mdash;</td>
           </tr>
           <tr>
-            <td><b>HGB: Gradient-boosted trees</b></td>
-            <td class="wrap-cell"><span class="code-tag">HistGradientBoosting</span> (<span class="code-tag">lr=0.03, depth=2, iter=300, leaf=20, l2=1.0</span>)</td>
+            <td><b>HGB: Boosted trees</b></td>
+            <td class="wrap-cell"><span class="code-tag">HistGradientBoosting(lr=0.03, depth=2, iter=300)</span></td>
             <td>0.3899</td>
             <td>[0.2948, 0.5008]</td>
             <td>0.1253</td>
@@ -497,8 +484,8 @@
             <td>99.7%</td>
           </tr>
           <tr>
-            <td><b>HGBm: Monotonic boosted trees</b></td>
-            <td class="wrap-cell">Same HGB + monotonicity on wickets, RRR, RRD, needed frac, DLS par</td>
+            <td><b>HGBm: Monotonic trees</b></td>
+            <td class="wrap-cell">Same HGB + domain monotonicity constraints</td>
             <td>0.3901</td>
             <td>[0.2944, 0.5019]</td>
             <td>0.1253</td>
@@ -507,8 +494,8 @@
             <td>99.7%</td>
           </tr>
           <tr>
-            <td><b>MLP: Small neural network</b></td>
-            <td class="wrap-cell"><span class="code-tag">MLPClassifier(hidden=(16,), alpha=0.1)</span> on standardized features</td>
+            <td><b>MLP: Neural network</b></td>
+            <td class="wrap-cell"><span class="code-tag">MLPClassifier(hidden=(16,), alpha=0.1)</span></td>
             <td>0.3856</td>
             <td>[0.2808, 0.5109]</td>
             <td>0.1218</td>
@@ -527,8 +514,8 @@
             <td><b>100.0%</b></td>
           </tr>
           <tr class="final">
-            <td><b>Selected Final: LR (<span class="code-tag">B +derived</span>, 11 feats)</b> <span class="badge-selected">Selected</span></td>
-            <td class="wrap-cell">L2 <span class="code-tag">LogisticRegression(C = 0.3162)</span> on <span class="code-tag">core + derived</span> (within 0.0007 of best &le; 0.003 rule)</td>
+            <td><b>Selected: LR (<span class="code-tag">B +derived</span>, 11 feats)</b> <span class="badge-selected">Selected</span></td>
+            <td class="wrap-cell">L2 <span class="code-tag">LogisticRegression(C = 0.3162)</span> (within 0.0007 &le; 0.003 rule)</td>
             <td><b>0.3697</b></td>
             <td>[0.2835, 0.4719]</td>
             <td><b>0.1176</b></td>
@@ -543,7 +530,6 @@
     <div class="method-grid" style="margin-top:20px">
       <div class="card-panel">
         <h3>Feature-Group Ablation Ladder (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/feature_ladder.csv" target="_blank" rel="noopener"><span class="code-tag">feature_ladder.csv</span></a>)</h3>
-        <p class="note" style="margin-bottom:10px">We added feature groups in 7 stages from 6 to 39 features. <b>Key finding:</b> adding derived DLS/rate features (<span class="code-tag">B +derived</span>) improved validation log loss from <span class="code-tag">0.3741</span> to <span class="code-tag">0.3697</span>, and <span class="code-tag">C +phase+momentum</span> reached <span class="code-tag">0.3690</span> (only 0.0007 better for 8 extra features). Adding noisy player, bowling, venue-history, home, and form groups (<span class="code-tag">D</span>–<span class="code-tag">G</span>) degraded validation log loss to <span class="code-tag">0.3866</span>:</p>
         <div class="table-scroll">
           <table class="compact-table">
             <thead>
@@ -611,20 +597,14 @@
       </div>
 
       <div class="card-panel">
-        <h3>Why Linear Beat Trees &amp; Why Recalibration Was Unnecessary</h3>
+        <h3>Key Validation Findings</h3>
         <dl class="plain">
-          <dt>Why Logistic Regression Outperformed Boosted Trees &amp; MLP</dt>
-          <dd>Once domain non-linearities are explicitly encoded via the empirical DLS curve (<span class="code-tag">dls_resources</span>, <span class="code-tag">par_score_diff</span>) and ratio terms (<span class="code-tag">runs_needed_per_wicket</span>, <span class="code-tag">run_rate_diff</span>), the log-odds of winning are nearly linear in the standardized features. Axis-aligned tree splits produce step-function probability jumps and overfit match-level idiosyncrasies across ~977 training matches.</dd>
-          <dt>Out-of-Fold Recalibration Check (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/03_baselines_and_models.ipynb" target="_blank" rel="noopener">Notebook 03 §10</a>)</dt>
-          <dd>We tested Platt scaling and isotonic regression fitted on 5-fold out-of-fold training predictions:
-            <ul class="tight" style="margin-top:6px">
-              <li><b>LR raw:</b> <span class="code-tag">0.3690</span> log loss (<span class="code-tag">0.1174</span> Brier)</li>
-              <li><b>LR + Platt scaling:</b> <span class="code-tag">0.3695</span> log loss (<span class="code-tag">0.1175</span> Brier)</li>
-              <li><b>LR + Isotonic regression:</b> <span class="code-tag">0.3707</span> log loss (<span class="code-tag">0.1185</span> Brier)</li>
-              <li><b>HGB raw vs Platt vs Isotonic:</b> <span class="code-tag">0.3899</span> vs <span class="code-tag">0.3898</span> vs <span class="code-tag">0.4085</span></li>
-            </ul>
-            Because L2 logistic regression directly optimizes log loss, post-hoc recalibration offered no gain and was omitted from the final pipeline.
-          </dd>
+          <dt>Why Linear Beat Boosted Trees &amp; MLP</dt>
+          <dd>Once non-linear resource decay is captured by the empirical DLS curve (<span class="code-tag">dls_resources</span>, <span class="code-tag">par_score_diff</span>), the log-odds of winning are nearly linear. Axis-aligned tree splits create step-function jumps and overfit match noise.</dd>
+          <dt>Why Extra Groups (D–G) Were Dropped</dt>
+          <dd>Adding player, venue, home, and form features (stages D–G) increased variance on 70 validation matches (<span class="code-tag">0.3697 &rarr; 0.3866</span>). The 0.003 rule selected the 11-feature <span class="code-tag">B +derived</span> set.</dd>
+          <dt>Recalibration Check</dt>
+          <dd>5-fold out-of-fold Platt (<span class="code-tag">0.3695</span>) and isotonic (<span class="code-tag">0.3707</span>) recalibration did not improve over raw L2 logistic regression (<span class="code-tag">0.3690</span>).</dd>
         </dl>
       </div>
     </div>
@@ -639,7 +619,7 @@
       <h2 id="results-h">Held-Out Test Evaluation &amp; Error Analysis</h2>
       <p class="intro" id="results-intro"></p>
     </div>
-    <div class="table-scroll"><table id="results-table"><caption class="note" style="text-align:left;padding:10px 14px;caption-side:bottom">Lower log loss and Brier score are better. A coin flip scores 0.693 log loss and 0.250 Brier. 95% confidence intervals resample whole matches (2,000 replicates). Source: <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/final/test_table.csv" target="_blank" rel="noopener">results/final/test_table.csv</a>.</caption></table></div>
+    <div class="table-scroll"><table id="results-table"><caption class="note" style="text-align:left;padding:10px 14px;caption-side:bottom">Lower log loss and Brier score are better. 95% confidence intervals resample whole matches (2,000 replicates). Source: <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/final/test_table.csv" target="_blank" rel="noopener">results/final/test_table.csv</a>.</caption></table></div>
     <p id="results-read" class="callout-text"></p>
     <div class="charts">
       <figure><h3>Probability Calibration</h3><svg id="cal" role="img" viewBox="0 0 380 340" aria-label="Calibration chart"></svg>
@@ -647,28 +627,25 @@
       <figure><h3>Log Loss by Over</h3><svg id="byover" role="img" viewBox="0 0 380 340" aria-label="Log loss by over"></svg>
         <figcaption>Average log loss after each over. Early on uncertainty is high; late in the chase outcomes are mostly decided.</figcaption></figure>
       <figure><h3>Permutation Feature Importance</h3><svg id="imp" role="img" viewBox="0 0 380 340" aria-label="Feature importance"></svg>
-        <figcaption>Increase in test log loss when one feature is randomly permuted across rows (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/final/test_permutation_importance.csv" target="_blank" rel="noopener">CSV</a>). <b>Note:</b> Importances reflect conditional predictive associations, not causal effects (e.g., preserving wickets by batting too slowly inflates required run rate and does not causally raise win probability).</figcaption></figure>
+        <figcaption>Increase in test log loss when permuted (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/final/test_permutation_importance.csv" target="_blank" rel="noopener">CSV</a>). Reflects conditional predictive association, not causation.</figcaption></figure>
     </div>
 
     <!-- ERROR ANALYSIS SUBSECTION -->
-    <h3 class="sub-heading">Error Analysis: Where and Why Does the Model Fail?</h3>
-    <p class="intro" style="color:var(--ink-soft);margin-bottom:14px">Overall, the final model beat the run-rate rule in <b>104 of 138</b> test matches (75.4%). To understand the remaining 34 matches and the largest single-over errors (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/final/test_match_errors.csv" target="_blank" rel="noopener"><span class="code-tag">results/final/test_match_errors.csv</span></a>), we inspect the worst match trajectories, single-over confident mistakes, game-state slices, and era-shift slices:</p>
-
+    <h3 class="sub-heading">Error Analysis (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/final/test_match_errors.csv" target="_blank" rel="noopener"><span class="code-tag">test_match_errors.csv</span></a>)</h3>
     <div class="card-panel" style="margin-bottom:20px">
-      <h3>Top 6 Highest-Loss Test Matches (Click any match to inspect its trajectory above)</h3>
-      <p class="note" style="margin-bottom:10px">The model's largest errors occur in dramatic T20 reversals—either a catastrophic middle-order collapse when chasing a modest target, or an extraordinary lower-order hitting miracle from a seemingly hopeless position:</p>
+      <h3>Representative High-Loss Test Matches (Model beat Rule B in 104 / 138 matches)</h3>
       <div class="table-scroll">
         <table class="compact-table">
           <thead>
             <tr>
-              <th scope="col">Match Date &amp; Teams</th>
+              <th scope="col">Match</th>
               <th scope="col">Venue</th>
               <th scope="col">Target</th>
-              <th scope="col">Actual Outcome</th>
-              <th scope="col">Mean Model <i>p&#770;</i></th>
-              <th scope="col">Model Log Loss</th>
-              <th scope="col">Rule B Log Loss</th>
-              <th scope="col" class="wrap-cell">Why the Model Was Wrong &amp; Worst Single Over</th>
+              <th scope="col">Outcome</th>
+              <th scope="col">Mean <i>p&#770;</i></th>
+              <th scope="col">Model Loss</th>
+              <th scope="col">Rule B Loss</th>
+              <th scope="col" class="wrap-cell">Failure Mode &amp; Worst Over</th>
               <th scope="col">Inspect</th>
             </tr>
           </thead>
@@ -677,12 +654,12 @@
               <td><b>15 Apr 2025</b> &middot; KKR vs PBKS</td>
               <td>Mullanpur</td>
               <td>112</td>
-              <td>Lost (95 all out)</td>
+              <td>Lost (95)</td>
               <td>88.4%</td>
               <td><b>2.592</b></td>
               <td>1.894</td>
-              <td class="wrap-cell"><b>Historic low-target collapse:</b> KKR cruised to 62/2 after Over 7 (<span class="code-tag">p&#770; = 98.0%</span>, single-row loss <span class="code-tag">3.894</span>—the worst single row in the test set) before losing 8 wickets for 33 runs to defend the lowest total in IPL history.</td>
-              <td><button type="button" class="btn-jump" data-jump-match="1473468">Load in Explorer &uarr;</button></td>
+              <td class="wrap-cell"><b>Low-target collapse:</b> 62/2 in Ov 7 (<span class="code-tag">p&#770; = 98%</span>, loss <span class="code-tag">3.89</span>) before losing 8 wkts for 33 runs.</td>
+              <td><button type="button" class="btn-jump" data-jump-match="1473468">Load &uarr;</button></td>
             </tr>
             <tr>
               <td><b>24 Mar 2025</b> &middot; DC vs LSG</td>
@@ -692,8 +669,8 @@
               <td>14.5%</td>
               <td><b>2.505</b></td>
               <td>0.919</td>
-              <td class="wrap-cell"><b>Lower-order miracle:</b> DC slumped to 7/3 in Over 2 (<span class="code-tag">p&#770; = 2.9%</span>, row loss <span class="code-tag">3.538</span>) and 65/5 in Over 7 (<span class="code-tag">p&#770; = 3.2%</span>) before Ashutosh Sharma's 66* (31) pulled off a 1-wicket win with 3 balls left.</td>
-              <td><button type="button" class="btn-jump" data-jump-match="1473441">Load in Explorer &uarr;</button></td>
+              <td class="wrap-cell"><b>Lower-order miracle:</b> Slumped to 7/3 (Ov 2) and 65/5 (Ov 7, <span class="code-tag">p&#770; = 3.2%</span>) before winning by 1 wkt.</td>
+              <td><button type="button" class="btn-jump" data-jump-match="1473441">Load &uarr;</button></td>
             </tr>
             <tr>
               <td><b>11 May 2026</b> &middot; DC vs PBKS</td>
@@ -703,8 +680,8 @@
               <td>21.9%</td>
               <td><b>1.759</b></td>
               <td>0.961</td>
-              <td class="wrap-cell"><b>Late death-over surge:</b> Chasing 211 behind the rate with mid-innings wickets down, DC launched a late boundary blitz that overturned a &lt;15% model estimate.</td>
-              <td><button type="button" class="btn-jump" data-jump-match="1529298">Load in Explorer &uarr;</button></td>
+              <td class="wrap-cell"><b>Death-over blitz:</b> Overturned a &lt;15% mid-innings deficit chasing 211.</td>
+              <td><button type="button" class="btn-jump" data-jump-match="1529298">Load &uarr;</button></td>
             </tr>
             <tr>
               <td><b>19 Apr 2025</b> &middot; RR vs LSG</td>
@@ -714,30 +691,8 @@
               <td>78.5%</td>
               <td><b>1.610</b></td>
               <td>1.591</td>
-              <td class="wrap-cell"><b>Death-over choke with wickets in hand:</b> RR reached 156/2 after Over 17 needing 25 off 18 balls (<span class="code-tag">p&#770; &gt; 90%</span>), then lost set batters in Overs 18–20 to fall 2 runs short.</td>
-              <td><button type="button" class="btn-jump" data-jump-match="1473473">Load in Explorer &uarr;</button></td>
-            </tr>
-            <tr>
-              <td><b>09 Apr 2026</b> &middot; LSG vs KKR</td>
-              <td>Kolkata</td>
-              <td>182</td>
-              <td>Won</td>
-              <td>41.8%</td>
-              <td><b>1.024</b></td>
-              <td>0.741</td>
-              <td class="wrap-cell"><b>Recovery after slow start:</b> LSG fell behind the required rate during the middle overs before accelerating sharply in the death overs.</td>
-              <td><button type="button" class="btn-jump" data-jump-match="1527688">Load in Explorer &uarr;</button></td>
-            </tr>
-            <tr>
-              <td><b>27 May 2025</b> &middot; RCB vs LSG</td>
-              <td>Lucknow</td>
-              <td>228</td>
-              <td>Won (230/4)</td>
-              <td>44.0%</td>
-              <td><b>0.947</b></td>
-              <td>0.585</td>
-              <td class="wrap-cell"><b>High-target chase:</b> Chasing 228, middle-over wickets depressed the model probability before Jitesh Sharma's unbeaten partnership completed the chase.</td>
-              <td><button type="button" class="btn-jump" data-jump-match="1473507">Load in Explorer &uarr;</button></td>
+              <td class="wrap-cell"><b>Late choke:</b> Reached 156/2 in Ov 17 needing 25 off 18b (<span class="code-tag">p&#770; &gt; 90%</span>), lost by 2 runs.</td>
+              <td><button type="button" class="btn-jump" data-jump-match="1473473">Load &uarr;</button></td>
             </tr>
           </tbody>
         </table>
@@ -746,8 +701,7 @@
 
     <div class="method-grid">
       <div class="card-panel">
-        <h3>Error by Required Run Rate (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/04_final_test.ipynb" target="_blank" rel="noopener">NB 04 §8</a>)</h3>
-        <p class="note" style="margin-bottom:8px">Errors concentrate in the competitive <span class="code-tag">RRR &isin; (8, 12]</span> zone where matches are genuine coin flips; in extreme states (<span class="code-tag">RRR &gt; 14</span>), the model crushes the step-function rule:</p>
+        <h3>Error by Required Run Rate</h3>
         <div class="table-scroll">
           <table class="compact-table">
             <thead>
@@ -774,8 +728,7 @@
       </div>
 
       <div class="card-panel">
-        <h3>Error by Wickets Lost (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/04_final_test.ipynb" target="_blank" rel="noopener">NB 04 §8</a>)</h3>
-        <p class="note" style="margin-bottom:8px">When 0 wickets are lost (mostly Powerplay overs 1–6), outcomes remain open (<span class="code-tag">0.508</span> loss) and the model is slightly conservative (<span class="code-tag">mean p&#770; = 54.8%</span> vs <span class="code-tag">72.4%</span> actual win rate):</p>
+        <h3>Error by Wickets Lost</h3>
         <div class="table-scroll">
           <table class="compact-table">
             <thead>
@@ -802,72 +755,71 @@
     </div>
 
     <div class="card-panel" style="margin-top:20px">
-      <h3>Season &amp; Target Shift Breakdown (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/final/test_by_season.csv" target="_blank" rel="noopener"><span class="code-tag">test_by_season.csv</span></a> &amp; <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/04_final_test.ipynb" target="_blank" rel="noopener">NB 04 §7</a>)</h3>
-      <p class="note" style="margin-bottom:10px">Evaluating how the model generalizes across individual holdout seasons and across the modern scoring surge (where 37.7% of 2025–2026 over states face targets above the 2008–2023 training 90th percentile of 203 runs):</p>
+      <h3>Season &amp; Target Shift Breakdown (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/final/test_by_season.csv" target="_blank" rel="noopener"><span class="code-tag">test_by_season.csv</span></a>)</h3>
       <div class="table-scroll">
         <table class="compact-table">
           <thead>
             <tr>
               <th scope="col">Evaluation Slice</th>
-              <th scope="col">Over Rows (Matches)</th>
-              <th scope="col">Model Log Loss</th>
-              <th scope="col">Rule B Log Loss</th>
-              <th scope="col">Log-Loss Gain</th>
+              <th scope="col">Rows (Matches)</th>
+              <th scope="col">Model Loss</th>
+              <th scope="col">Rule B Loss</th>
+              <th scope="col">Gain vs Rule B</th>
               <th scope="col">Model Brier</th>
               <th scope="col">Model Acc</th>
-              <th scope="col" class="wrap-cell">Era-Shift &amp; Calibration Behavior</th>
+              <th scope="col" class="wrap-cell">Takeaway</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td><b>2025 Season</b></td>
-              <td>1,202 (68 matches)</td>
+              <td>1,202 (68)</td>
               <td>0.4211</td>
               <td>0.5911</td>
-              <td><b>&minus;0.1700</b> (28.8%)</td>
+              <td><b>&minus;0.1700</b></td>
               <td>0.1352</td>
               <td>79.95%</td>
-              <td class="wrap-cell">Includes the two largest single-match upsets in the test set (KKR 95 all out chasing 112; DC 1-wkt miracle chasing 210).</td>
+              <td class="wrap-cell">Contains the two largest test upsets (KKR 95 all out; DC 1-wkt win).</td>
             </tr>
             <tr class="final">
               <td><b>2026 Season</b></td>
-              <td>1,232 (70 matches)</td>
+              <td>1,232 (70)</td>
               <td><b>0.3428</b></td>
               <td>0.4894</td>
-              <td><b>&minus;0.1466</b> (30.0%)</td>
+              <td><b>&minus;0.1466</b></td>
               <td><b>0.1088</b></td>
               <td><b>84.09%</b></td>
-              <td class="wrap-cell">Strongest season performance across all metrics despite being two full years past the training window.</td>
+              <td class="wrap-cell">Best season performance, two years past the training window.</td>
             </tr>
             <tr>
-              <td><b>Target &le; 166</b> (&le; Train Median)</td>
-              <td>584 rows (24.0%)</td>
+              <td><b>Target &le; 166</b> (&le; Train Med)</td>
+              <td>584 (24.0%)</td>
               <td>0.3353</td>
               <td>0.4874</td>
-              <td><b>&minus;0.1521</b> (31.2%)</td>
+              <td><b>&minus;0.1521</b></td>
               <td>&mdash;</td>
               <td>&mdash;</td>
-              <td class="wrap-cell">Modest targets where the chasing team is heavily favored unless early Powerplay wickets fall.</td>
+              <td class="wrap-cell">Low targets; chasing team heavily favored unless early wickets fall.</td>
             </tr>
             <tr>
-              <td><b>Target 167–203</b> (50th–90th Pct)</td>
-              <td>933 rows (38.3%)</td>
+              <td><b>Target 167–203</b> (50–90% Pct)</td>
+              <td>933 (38.3%)</td>
               <td>0.4155</td>
               <td>0.5540</td>
-              <td><b>&minus;0.1385</b> (25.0%)</td>
+              <td><b>&minus;0.1385</b></td>
               <td>&mdash;</td>
               <td>&mdash;</td>
-              <td class="wrap-cell">Par modern T20 chases with the highest competitive uncertainty through the middle overs.</td>
+              <td class="wrap-cell">Competitive modern par chases with highest mid-innings uncertainty.</td>
             </tr>
             <tr>
-              <td><b>Target &gt; 203</b> (&gt; Train 90th Pct)</td>
-              <td>917 rows (37.7%)</td>
+              <td><b>Target &gt; 203</b> (&gt; 90th Pct)</td>
+              <td>917 (37.7%)</td>
               <td>0.3763</td>
               <td>0.5583</td>
-              <td><b>&minus;0.1820</b> (32.6%)</td>
+              <td><b>&minus;0.1820</b></td>
               <td>&mdash;</td>
               <td>&mdash;</td>
-              <td class="wrap-cell">Largest margin over Rule B: teams now chase 200+ more often than in 2008–2023, explaining the slight +0.61 calibration intercept (slope 1.19).</td>
+              <td class="wrap-cell">Higher 200+ chase success explains mild under-confidence (slope 1.19, intercept +0.61).</td>
             </tr>
           </tbody>
         </table>
@@ -880,47 +832,34 @@
 <section id="limits" aria-labelledby="limits-h">
   <div class="wrap">
     <div class="section-head">
-      <span class="kicker">7. Conclusion, Limitations, Reproduction Steps &amp; Disclosure</span>
-      <h2 id="limits-h">Conclusion, Scope &amp; How to Reproduce</h2>
+      <span class="kicker">7. Conclusion, Limitations &amp; Reproducibility</span>
+      <h2 id="limits-h">Conclusion, Limitations &amp; How to Reproduce</h2>
     </div>
 
     <div class="card-panel" style="margin-bottom:20px">
-      <h3>Conclusion: Answering the Research Question</h3>
-      <p style="margin-bottom:10px"><b>Yes—a parsimonious, domain-informed linear model substantially and reliably outperforms the broadcast run-rate heuristic on future IPL seasons while remaining well calibrated under severe scoring inflation:</b></p>
-      <ol class="steps">
-        <li><b>Large, Statistically Decisive Gain Over the Run-Rate Rule:</b> On 138 unseen 2025–2026 test matches (2,434 over states), our pre-selected 11-feature L2 logistic regression (<span class="code-tag">B +derived</span>) achieved a log loss of <b>0.3815</b> (Brier <b>0.1219</b>, accuracy <b>82.05%</b>) versus <b>0.5396</b> log loss (Brier <b>0.1792</b>, accuracy <b>75.31%</b>) for the textbook run-rate rule (<span class="code-tag">CRR &ge; RRR</span>). The paired improvement of <b>&minus;0.1576 log loss</b> (95% match-bootstrap CI <span class="code-tag">[&minus;0.2126, &minus;0.0985]</span>, <span class="code-tag">P(better) = 100%</span>) beat the heuristic in <b>104 of 138 matches (75.4%)</b>.</li>
-        <li><b>Domain Feature Engineering Beat Model Complexity:</b> Once non-linear resource depletion (<span class="code-tag">dls_resources</span>, <span class="code-tag">par_score_diff</span> fitted on 2008–2023 first innings) and wicket-adjusted rate ratios (<span class="code-tag">runs_needed_per_wicket</span>) were explicitly encoded, L2 logistic regression outperformed gradient-boosted trees (<span class="code-tag">0.3899</span>), monotonic boosted trees (<span class="code-tag">0.3901</span>), and a neural network (<span class="code-tag">0.3856</span>) on validation, and needed no post-hoc Platt or isotonic recalibration.</li>
-        <li><b>Robustness to Era Shift &amp; What Remains Unpredictable:</b> Normalizing targets against past-only venue par (<span class="code-tag">target_vs_venue_par</span>) reduced out-of-range test rows from 37.7% to <b>0.8%</b>, allowing the model to achieve its strongest performance in 2026 (<b>0.3428</b> log loss, <b>84.09%</b> accuracy). Remaining errors are concentrated in genuinely open middle-over coin flips (<span class="code-tag">RRR &isin; (8, 12]</span>) and rare T20 tail-event reversals (sudden 8-wicket collapses or lower-order miracles).</li>
-      </ol>
+      <h3>Conclusion</h3>
+      <ul class="tight">
+        <li><b>Decisive Improvement Over the Broadcast Rule:</b> On 138 held-out 2025–2026 matches (2,434 overs), the 11-feature L2 logistic regression (<span class="code-tag">B +derived</span>) achieved <b>0.3815</b> log loss (<b>0.1219</b> Brier, <b>82.05%</b> accuracy) vs. <b>0.5396</b> for the <span class="code-tag">CRR &ge; RRR</span> rule—a paired gain of <b>&minus;0.1576</b> (<span class="code-tag">95% CI [&minus;0.2126, &minus;0.0985]</span>, winning <b>75.4%</b> of matches).</li>
+        <li><b>Domain Features Beat Complex Models:</b> Encoding non-linear DLS resource depletion (<span class="code-tag">dls_resources</span>, <span class="code-tag">par_score_diff</span>) and venue-par adjustments (<span class="code-tag">target_vs_venue_par</span>) let a simple linear model beat boosted trees (<span class="code-tag">0.3899</span>) and an MLP (<span class="code-tag">0.3856</span>) without post-hoc recalibration.</li>
+      </ul>
     </div>
 
     <div class="method-grid">
       <div class="card-panel">
-        <h3>Scope &amp; Limitations of What We Found</h3>
+        <h3>Scope &amp; Limitations</h3>
         <ul class="tight" id="limits-list"></ul>
       </div>
       <div class="card-panel">
-        <h3>Step-by-Step Reproduction &amp; Repository Guide</h3>
-        <p class="note" style="margin-bottom:10px">All 1,243 raw Cricsheet JSON files, scripts, notebooks, and split CSVs are committed in <a href="https://github.com/tashakaggarwal/es335-2026" target="_blank" rel="noopener">github.com/tashakaggarwal/es335-2026</a> (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/README.md" target="_blank" rel="noopener">README.md</a>). Reproduce from scratch in Python 3.10+ (<span class="code-tag">RANDOM_STATE = 0</span>):</p>
-        <ol class="steps" style="font-size:0.92rem">
-          <li><b>Install dependencies (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/requirements.txt" target="_blank" rel="noopener"><span class="code-tag">requirements.txt</span></a>):</b><br><span class="code-tag">pip install -r requirements.txt</span></li>
-          <li><b>Parse raw Cricsheet JSONs (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/scripts/parse_cricsheet.py" target="_blank" rel="noopener"><span class="code-tag">parse_cricsheet.py</span></a>):</b><br><span class="code-tag">python scripts/parse_cricsheet.py data/raw --out data/parsed/overs.csv</span><br>Writes <span class="code-tag">overs.csv</span> (21,251 rows), <span class="code-tag">first_innings_states.csv</span> (22,438 rows), and <span class="code-tag">match_log.csv</span> (1,243 files).</li>
-          <li><b>Engineer features &amp; run 60-match leakage check (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/02_features.ipynb" target="_blank" rel="noopener"><span class="code-tag">02_features.ipynb</span></a>):</b><br>Fits <span class="code-tag">dls_params.json</span> on <span class="code-tag">season &lt; 2024</span>, verifies <span class="code-tag">0 disagreements</span> on past-only history features, and writes <span class="code-tag">data/features/features_all.csv</span>.</li>
-          <li><b>Create chronological season splits (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/scripts/data_split.py" target="_blank" rel="noopener"><span class="code-tag">data_split.py</span></a>):</b><br><span class="code-tag">python scripts/data_split.py</span> &rarr; writes <a href="https://github.com/tashakaggarwal/es335-2026/tree/main/data/split" target="_blank" rel="noopener"><span class="code-tag">data/split/{train,validation,test}.csv</span></a>.</li>
-          <li><b>Run EDA &amp; model selection (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/01_eda.ipynb" target="_blank" rel="noopener"><span class="code-tag">01_eda</span></a>, <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/03_baselines_and_models.ipynb" target="_blank" rel="noopener"><span class="code-tag">03_baselines_and_models</span></a>):</b><br>Tunes all models via 5-fold <span class="code-tag">GroupKFold</span>, runs the 7-stage feature ladder, and freezes <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/model_selection.json" target="_blank" rel="noopener"><span class="code-tag">results/model_selection.json</span></a>.</li>
-          <li><b>Run locked test evaluation &amp; export site data (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/04_final_test.ipynb" target="_blank" rel="noopener"><span class="code-tag">04_final_test</span></a>, <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/05_export_site_data.ipynb" target="_blank" rel="noopener"><span class="code-tag">05_export_site_data</span></a>):</b><br>Scores the 2025–2026 test set once (locks <span class="code-tag">results/final/test_results.json</span>), exports <span class="code-tag">site/data/site_data.json</span>, and serves locally via <span class="code-tag">python -m http.server 8000</span>.</li>
+        <h3>Reproduction Steps &amp; Disclosure (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/README.md" target="_blank" rel="noopener">README.md ↗</a>)</h3>
+        <ol class="steps" style="font-size:0.9rem;margin-bottom:10px">
+          <li><span class="code-tag">pip install -r requirements.txt</span></li>
+          <li><span class="code-tag">python scripts/parse_cricsheet.py data/raw --out data/parsed/overs.csv</span></li>
+          <li>Run <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/02_features.ipynb" target="_blank" rel="noopener"><span class="code-tag">notebooks/02_features.ipynb</span></a>, then <span class="code-tag">python scripts/data_split.py</span></li>
+          <li>Run <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/01_eda.ipynb" target="_blank" rel="noopener"><span class="code-tag">01_eda</span></a> &amp; <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/03_baselines_and_models.ipynb" target="_blank" rel="noopener"><span class="code-tag">03_baselines_and_models</span></a> &rarr; writes <span class="code-tag">model_selection.json</span></li>
+          <li>Run <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/04_final_test.ipynb" target="_blank" rel="noopener"><span class="code-tag">04_final_test</span></a> (locks <span class="code-tag">test_results.json</span>) &amp; <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/05_export_site_data.ipynb" target="_blank" rel="noopener"><span class="code-tag">05_export_site_data</span></a>, then serve via <span class="code-tag">python -m http.server 8000</span></li>
         </ol>
+        <p class="note"><b>AI &amp; Data Disclosure:</b> AI tools assisted with frontend UI/SVG scaffolding and player-name mapping boilerplate; all parsing, leakage checks, modeling, and evaluation were verified independently. Data from <a href="https://cricsheet.org/" target="_blank" rel="noopener">Cricsheet</a> (CC BY 4.0); DLS form after Duckworth &amp; Lewis (1998).</p>
       </div>
-    </div>
-
-    <div class="card-panel" style="margin-top:20px">
-      <h3>AI-Use Disclosure, Data License &amp; Citations</h3>
-      <dl class="plain">
-        <dt>AI-Use Disclosure &amp; Independent Verification</dt>
-        <dd>In accordance with ES 335 policy, AI coding assistants (GitHub Copilot / LLMs) were used for frontend UI/CSS scaffolding, SVG chart helpers in <span class="code-tag">site/app.js</span>, player-name mapping boilerplate in <span class="code-tag">scripts/player_names.py</span>, and documentation formatting. All data parsing (<span class="code-tag">parse_cricsheet.py</span>), chronological splitting (<span class="code-tag">data_split.py</span>), empirical DLS curve fitting and 60-match brute-force leakage checks (<span class="code-tag">02_features.ipynb</span>), cross-validated model selection (<span class="code-tag">03_baselines_and_models.ipynb</span>), and locked test evaluation (<span class="code-tag">04_final_test.ipynb</span>) were verified independently via automated assertions (<span class="code-tag">0 disagreements</span> on past-only history features) and audited against raw Cricsheet logs.</dd>
-        <dt>Data Source, License &amp; Key References</dt>
-        <dd>Ball-by-ball data from <a href="https://cricsheet.org/" target="_blank" rel="noopener">Cricsheet</a> (Rushe, 2008–2026), licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> (<span class="code-tag">data/raw/LICENSE.txt</span>). No private data, credentials, or API keys are used. Resource curve formulation follows Duckworth &amp; Lewis (1998), <em>J. Operational Research Society</em> 49(3), 220–227; modeling built with <span class="code-tag">scikit-learn</span> (Pedregosa et al., 2011), <span class="code-tag">NumPy</span>, <span class="code-tag">pandas</span>, and <span class="code-tag">SciPy</span>.</dd>
-      </dl>
     </div>
   </div>
 </section>

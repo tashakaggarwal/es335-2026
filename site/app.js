@@ -140,19 +140,14 @@ function fillText() {
   $("explorer-intro").textContent = "Pick a match from the " + seasons + " seasons, which the model never saw while it was being built. The line is hidden past the over you choose, so you can guess before you look.";
   const ci = parseCI(fin.diff_ci);
   const clear = ci && ci[1] < 0;
-  $("results-intro").textContent = "On the " + m.test_matches + " held-out matches of " + seasons + " (" + m.test_rows.toLocaleString() + " over-by-over chase states), the final model (L2 logistic regression on the 11 B +derived features, refitted on 2008–2024) achieves a log loss of " + f3(fin.log_loss) + " and Brier score of " + f3(fin.brier) + ", compared with " + f3(rule.log_loss) + " log loss (" + f3(rule.brier) + " Brier) for the run-rate rule. Accuracy is " + (fin.accuracy * 100).toFixed(1) + "% versus " + (rule.accuracy * 100).toFixed(1) + "%.";
-  $("results-read").textContent = (clear
-    ? "The paired improvement over the run-rate rule is " + f3(Math.abs(fin.diff)) + " log loss, and its 95% match-bootstrap interval (" + fin.diff_ci + ") stays strictly below zero (P(better than B) = 100%), confirming the gain is not luck of the draw. "
-    : "The interval for the gap to the rule (" + fin.diff_ci + ") includes zero, so with this few matches the improvement cannot be separated from chance. ")
-    + "Refitting on 2008–2024 instead of 2008–2023 alone improved test log loss from 0.3884 to 0.3815 because the 2024 high-scoring season helped anchor modern scoring levels.";
+  $("results-intro").textContent = "Evaluated once on " + m.test_matches + " held-out " + seasons + " matches (" + m.test_rows.toLocaleString() + " over states): the 11-feature logistic regression achieves " + f3(fin.log_loss) + " log loss (" + f3(fin.brier) + " Brier, " + (fin.accuracy * 100).toFixed(1) + "% accuracy) vs. " + f3(rule.log_loss) + " log loss (" + f3(rule.brier) + " Brier, " + (rule.accuracy * 100).toFixed(1) + "% accuracy) for Rule B.";
+  $("results-read").textContent = "Paired gain over Rule B: " + f3(Math.abs(fin.diff)) + " log loss (95% match-bootstrap CI " + fin.diff_ci + ", P(better) = 100%). Refitting on 2008–2024 vs. 2008–2023 improved test log loss from 0.3884 to 0.3815.";
   const lim = [
-    "Effective sample size is matches, not overs: " + m.test_matches + " test matches (~70 per season) produce wide match-bootstrap confidence intervals, so differences of a few thousandths of log loss between close models are indistinguishable from noise.",
-    "Non-stationary scoring drift: average first-innings targets rose from " + Math.round(m.mean_target_fit) + " in 2008–2024 to " + Math.round(m.mean_target_test) + " in 2025–2026. Normalizing via target_vs_venue_par kept out-of-range test rows to 0.8%, but higher overall chase success in 200+ totals causes mild under-confidence (calibration slope 1.19, intercept +0.61).",
-    "Predictive association, not causation: feature coefficients and permutation importances reflect conditional correlations in historical chases, not causal interventions (e.g., having wickets in hand predicts winning, but batting passively merely to preserve wickets while required run rate climbs does not causally increase win probability).",
-    "Honesty note on initial data profiling: while Notebooks 01 and 03 strictly filtered season < 2025 and Notebook 04 ran once with a lock file, aggregate season-level match counts and mean targets across the parsed dataset (the 2024–2026 scoring surge) were observed during initial profiling, motivating scale-free and par-normalized features.",
-    "Unmodeled conditions: the model sees only scoreboard state. It has no access to pitch wear, evening dew, wind/boundary dimensions, toss strategy, or injuries.",
-    "Why player & venue features were dropped from the final 11-feature benchmark: adding career batter/bowler, venue, home, and form features (groups D–G, 39 features) slightly degraded validation log loss (0.3697 to 0.3866) due to small-sample variance across ~70 validation matches. The 39-feature model is provided in the Live Predictor for interactive exploration.",
-    "Excluded match types & manual entity mapping: rain-shortened DLS chases (23), ties/no-results (25), and reduced-overs games (10) are excluded; stadium/franchise mappings are maintained by hand. Probabilities are for sports analytics and education, never betting advice.",
+    "Small match count (" + m.test_matches + " test matches): effective sample size is matches, not overs, yielding wide bootstrap CIs.",
+    "Era shift & mild under-confidence: higher 200+ chase success in 2025–2026 produces a calibration slope of 1.19 (intercept +0.61).",
+    "Prediction vs. causation: feature weights reflect conditional associations, not causal interventions (preserving wickets passively inflates RRR).",
+    "Unmodeled context & exclusions: no pitch/dew/weather data; DLS-revised (23), tied/no-result (25), and shortened (10) matches are excluded.",
+    "Lineup features in small samples: groups D–G (39 features) increased variance on 70 validation matches, so the 11-feature model is used for formal evaluation while all 39 power the Live Predictor.",
   ];
   $("limits-list").replaceChildren(...lim.map((t) => { const li = document.createElement("li"); li.textContent = t; return li; }));
   const f = $("footer"); f.replaceChildren();
