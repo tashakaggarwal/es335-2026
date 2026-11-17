@@ -415,6 +415,7 @@ input[type="range"] { flex: 1; min-height: 34px; accent-color: var(--chaser-colo
   white-space: nowrap;
 }
 .form-item.span-2 { grid-column: span 2; }
+.form-item.span-4 { grid-column: 1 / -1; }
 .bat-row { display: flex; align-items: center; gap: 8px; }
 .bat-row input[type="number"] { flex: 1; min-width: 72px; }
 .bat-row select { flex: 1; min-width: 0; }
