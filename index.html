@@ -52,7 +52,7 @@
 
 <main>
 <div class="wrap hero">
-  <span class="kicker">ES 335 Machine Learning — Indian Premier League (2008–2026)</span>
+  <span class="kicker">ES 335 Machine Learning &middot; By Tashak Aggarwal &middot; Indian Premier League (2008–2026)</span>
   <h1>IPL Chase Win Probability</h1>
   <p class="lede" id="lede">Can a calibrated machine learning model meaningfully beat the textbook broadcast run-rate rule (<code>CRR &ge; RRR</code>) when estimating over-by-over second-innings win probabilities, and does it stay calibrated as IPL scoring levels surge? Explore 138 held-out 2025–2026 chases, track a live chase with custom Playing 11s, or inspect the full methodology, model selection, and error analysis below.</p>
   <div class="hero-links">
@@ -90,6 +90,8 @@
           <dd>One row is the exact snapshot of a regular second-innings chase at the <b>end of completed over <i>o</i> &isin; {1, &hellip;, 19}</b> (before the 20th over starts or the chase finishes earlier).</dd>
           <dt>Target Variable &amp; Output</dt>
           <dd><span class="code-tag">chasing_team_won &isin; {0, 1}</span> (1 if the chasing team wins the match, 0 otherwise). The model outputs a calibrated probability <i>p&#770;</i> &isin; (0, 1), not a binary label.</dd>
+          <dt>Prediction-Time Information Boundary</dt>
+          <dd>Predictions are made immediately after the final delivery of completed over <i>o</i>. Available information is strictly limited to pre-match context from dates prior to the match, the first-innings target, deliveries up to over <i>o</i>, and the incoming batter at the crease for over <i>o + 1</i>—never any future delivery or outcome.</dd>
         </dl>
       </div>
 
@@ -418,7 +420,7 @@
           <dt>Match-Cluster Bootstrap (2,000 Replicates)</dt>
           <dd>The 19 overs of a single match are strongly correlated; treating rows as independent dramatically understates uncertainty. All 95% confidence intervals and paired differences vs. Baseline B resample <b>whole matches</b> (<span class="code-tag">N_BOOT = 2000</span>).</dd>
           <dt>Pre-Registered Parsimony Selection Rule</dt>
-          <dd>To avoid overfitting ~70 validation matches, we fixed our selection rule in advance: pick the <b>simplest candidate</b> (fewest features, linear before trees) within <b>0.003 validation log loss</b> of the overall best.</dd>
+          <dd>Comparing ~18 model and feature-stage candidates on a single 70-match validation season invites selection optimism (winner&rsquo;s curse). We fixed our selection rule in advance: pick the <b>simplest candidate</b> (fewest features, linear before trees) within <b>0.003 validation log loss</b> of the overall best.</dd>
         </dl>
       </div>
 
@@ -431,8 +433,8 @@
           <dd>All historical features (batter SR/BPD, bowler economy, venue par/chase rate, home edge, 5-match form) exclude same-day and future matches—verified against a brute-force recomputation across 60 sampled matches in <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/02_features.ipynb" target="_blank" rel="noopener">Notebook 02</a> with <b>0 disagreements</b>.</dd>
           <dt>In-Fold Preprocessing &amp; Out-of-Fold Calibration</dt>
           <dd><span class="code-tag">SimpleImputer(strategy="median")</span> and <span class="code-tag">StandardScaler()</span> live inside scikit-learn <span class="code-tag">Pipeline</span> objects so statistics are refitted inside every CV fold. Platt and isotonic recalibrators are fit strictly on out-of-fold training predictions.</dd>
-          <dt>Single-Shot Locked Test Evaluation</dt>
-          <dd>Notebooks 01 and 03 assert <span class="code-tag">season &lt; 2025</span>. <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/04_final_test.ipynb" target="_blank" rel="noopener">Notebook 04</a> writes a lock file (<span class="code-tag">test_results.json</span>) after one run and refuses re-execution unless overridden.</dd>
+          <dt>Single-Shot Locked Test &amp; Profiling Honesty Note</dt>
+          <dd>Notebooks 01 and 03 assert <span class="code-tag">season &lt; 2025</span>, and <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/04_final_test.ipynb" target="_blank" rel="noopener">Notebook 04</a> writes a lock file (<span class="code-tag">test_results.json</span>) after one run. <b>Honesty note:</b> while no model tuning or selection ever touched 2025–2026 rows, aggregate season-level match counts and average target scores across the parsed Cricsheet archive (the 2024–2026 scoring surge) were seen during initial dataset profiling, motivating scale-free and par-normalized features.</dd>
         </dl>
       </div>
     </div>
@@ -645,7 +647,7 @@
       <figure><h3>Log Loss by Over</h3><svg id="byover" role="img" viewBox="0 0 380 340" aria-label="Log loss by over"></svg>
         <figcaption>Average log loss after each over. Early on uncertainty is high; late in the chase outcomes are mostly decided.</figcaption></figure>
       <figure><h3>Permutation Feature Importance</h3><svg id="imp" role="img" viewBox="0 0 380 340" aria-label="Feature importance"></svg>
-        <figcaption>Increase in test log loss when one feature is randomly permuted across rows (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/final/test_permutation_importance.csv" target="_blank" rel="noopener">CSV</a>).</figcaption></figure>
+        <figcaption>Increase in test log loss when one feature is randomly permuted across rows (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/final/test_permutation_importance.csv" target="_blank" rel="noopener">CSV</a>). <b>Note:</b> Importances reflect conditional predictive associations, not causal effects (e.g., preserving wickets by batting too slowly inflates required run rate and does not causally raise win probability).</figcaption></figure>
     </div>
 
     <!-- ERROR ANALYSIS SUBSECTION -->
@@ -874,32 +876,51 @@
   </div>
 </section>
 
-<!-- ==================== 7. LIMITATIONS & REPOSITORY LINKS ==================== -->
+<!-- ==================== 7. CONCLUSION, LIMITATIONS & REPRODUCIBILITY ==================== -->
 <section id="limits" aria-labelledby="limits-h">
   <div class="wrap">
     <div class="section-head">
-      <span class="kicker">7. Assumptions, Constraints &amp; Reproducibility</span>
-      <h2 id="limits-h">Scope, Limitations &amp; Repository Verification Guide</h2>
+      <span class="kicker">7. Conclusion, Limitations, Reproduction Steps &amp; Disclosure</span>
+      <h2 id="limits-h">Conclusion, Scope &amp; How to Reproduce</h2>
     </div>
+
+    <div class="card-panel" style="margin-bottom:20px">
+      <h3>Conclusion: Answering the Research Question</h3>
+      <p style="margin-bottom:10px"><b>Yes—a parsimonious, domain-informed linear model substantially and reliably outperforms the broadcast run-rate heuristic on future IPL seasons while remaining well calibrated under severe scoring inflation:</b></p>
+      <ol class="steps">
+        <li><b>Large, Statistically Decisive Gain Over the Run-Rate Rule:</b> On 138 unseen 2025–2026 test matches (2,434 over states), our pre-selected 11-feature L2 logistic regression (<span class="code-tag">B +derived</span>) achieved a log loss of <b>0.3815</b> (Brier <b>0.1219</b>, accuracy <b>82.05%</b>) versus <b>0.5396</b> log loss (Brier <b>0.1792</b>, accuracy <b>75.31%</b>) for the textbook run-rate rule (<span class="code-tag">CRR &ge; RRR</span>). The paired improvement of <b>&minus;0.1576 log loss</b> (95% match-bootstrap CI <span class="code-tag">[&minus;0.2126, &minus;0.0985]</span>, <span class="code-tag">P(better) = 100%</span>) beat the heuristic in <b>104 of 138 matches (75.4%)</b>.</li>
+        <li><b>Domain Feature Engineering Beat Model Complexity:</b> Once non-linear resource depletion (<span class="code-tag">dls_resources</span>, <span class="code-tag">par_score_diff</span> fitted on 2008–2023 first innings) and wicket-adjusted rate ratios (<span class="code-tag">runs_needed_per_wicket</span>) were explicitly encoded, L2 logistic regression outperformed gradient-boosted trees (<span class="code-tag">0.3899</span>), monotonic boosted trees (<span class="code-tag">0.3901</span>), and a neural network (<span class="code-tag">0.3856</span>) on validation, and needed no post-hoc Platt or isotonic recalibration.</li>
+        <li><b>Robustness to Era Shift &amp; What Remains Unpredictable:</b> Normalizing targets against past-only venue par (<span class="code-tag">target_vs_venue_par</span>) reduced out-of-range test rows from 37.7% to <b>0.8%</b>, allowing the model to achieve its strongest performance in 2026 (<b>0.3428</b> log loss, <b>84.09%</b> accuracy). Remaining errors are concentrated in genuinely open middle-over coin flips (<span class="code-tag">RRR &isin; (8, 12]</span>) and rare T20 tail-event reversals (sudden 8-wicket collapses or lower-order miracles).</li>
+      </ol>
+    </div>
+
     <div class="method-grid">
       <div class="card-panel">
         <h3>Scope &amp; Limitations of What We Found</h3>
         <ul class="tight" id="limits-list"></ul>
       </div>
       <div class="card-panel">
-        <h3>Verify &amp; Reproduce in the Repository</h3>
-        <p class="note" style="margin-bottom:10px">Every script, notebook, split CSV, and figure is committed in the GitHub repository so graders can verify and reproduce the entire pipeline:</p>
-        <dl class="plain">
-          <dt><a href="https://github.com/tashakaggarwal/es335-2026/blob/main/README.md" target="_blank" rel="noopener">README.md</a> &amp; <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/requirements.txt" target="_blank" rel="noopener">requirements.txt</a></dt>
-          <dd>Step-by-step setup, exact CLI reproduction commands, data-access instructions, AI-use disclosure, and academic/data citations.</dd>
-          <dt><a href="https://github.com/tashakaggarwal/es335-2026/tree/main/scripts" target="_blank" rel="noopener">scripts/</a> (<span class="code-tag">parse_cricsheet.py</span>, <span class="code-tag">data_split.py</span>, <span class="code-tag">player_names.py</span>)</dt>
-          <dd>Deterministic ball-by-ball parser producing <span class="code-tag">overs.csv</span>, <span class="code-tag">first_innings_states.csv</span>, and <span class="code-tag">match_log.csv</span>, plus the chronological season splitter.</dd>
-          <dt><a href="https://github.com/tashakaggarwal/es335-2026/tree/main/notebooks" target="_blank" rel="noopener">notebooks/01_eda.ipynb &rarr; 05_export_site_data.ipynb</a></dt>
-          <dd><a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/01_eda.ipynb" target="_blank" rel="noopener">01_eda</a> (train+val exploration), <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/02_features.ipynb" target="_blank" rel="noopener">02_features</a> (DLS curve + 60-match leakage audit), <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/03_baselines_and_models.ipynb" target="_blank" rel="noopener">03_baselines_and_models</a> (CV tuning, recalibration, feature ladder), <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/04_final_test.ipynb" target="_blank" rel="noopener">04_final_test</a> (locked test evaluation &amp; error slices), and <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/05_export_site_data.ipynb" target="_blank" rel="noopener">05_export_site_data</a>.</dd>
-          <dt><a href="https://github.com/tashakaggarwal/es335-2026/tree/main/results" target="_blank" rel="noopener">results/</a> &amp; <a href="https://github.com/tashakaggarwal/es335-2026/tree/main/data/split" target="_blank" rel="noopener">data/split/</a></dt>
-          <dd>Exact train/validation/test CSV splits, <span class="code-tag">model_selection.json</span>, validation &amp; test tables, row-level predictions, and static PNG plots.</dd>
-        </dl>
+        <h3>Step-by-Step Reproduction &amp; Repository Guide</h3>
+        <p class="note" style="margin-bottom:10px">All 1,243 raw Cricsheet JSON files, scripts, notebooks, and split CSVs are committed in <a href="https://github.com/tashakaggarwal/es335-2026" target="_blank" rel="noopener">github.com/tashakaggarwal/es335-2026</a> (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/README.md" target="_blank" rel="noopener">README.md</a>). Reproduce from scratch in Python 3.10+ (<span class="code-tag">RANDOM_STATE = 0</span>):</p>
+        <ol class="steps" style="font-size:0.92rem">
+          <li><b>Install dependencies (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/requirements.txt" target="_blank" rel="noopener"><span class="code-tag">requirements.txt</span></a>):</b><br><span class="code-tag">pip install -r requirements.txt</span></li>
+          <li><b>Parse raw Cricsheet JSONs (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/scripts/parse_cricsheet.py" target="_blank" rel="noopener"><span class="code-tag">parse_cricsheet.py</span></a>):</b><br><span class="code-tag">python scripts/parse_cricsheet.py data/raw --out data/parsed/overs.csv</span><br>Writes <span class="code-tag">overs.csv</span> (21,251 rows), <span class="code-tag">first_innings_states.csv</span> (22,438 rows), and <span class="code-tag">match_log.csv</span> (1,243 files).</li>
+          <li><b>Engineer features &amp; run 60-match leakage check (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/02_features.ipynb" target="_blank" rel="noopener"><span class="code-tag">02_features.ipynb</span></a>):</b><br>Fits <span class="code-tag">dls_params.json</span> on <span class="code-tag">season &lt; 2024</span>, verifies <span class="code-tag">0 disagreements</span> on past-only history features, and writes <span class="code-tag">data/features/features_all.csv</span>.</li>
+          <li><b>Create chronological season splits (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/scripts/data_split.py" target="_blank" rel="noopener"><span class="code-tag">data_split.py</span></a>):</b><br><span class="code-tag">python scripts/data_split.py</span> &rarr; writes <a href="https://github.com/tashakaggarwal/es335-2026/tree/main/data/split" target="_blank" rel="noopener"><span class="code-tag">data/split/{train,validation,test}.csv</span></a>.</li>
+          <li><b>Run EDA &amp; model selection (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/01_eda.ipynb" target="_blank" rel="noopener"><span class="code-tag">01_eda</span></a>, <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/03_baselines_and_models.ipynb" target="_blank" rel="noopener"><span class="code-tag">03_baselines_and_models</span></a>):</b><br>Tunes all models via 5-fold <span class="code-tag">GroupKFold</span>, runs the 7-stage feature ladder, and freezes <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/model_selection.json" target="_blank" rel="noopener"><span class="code-tag">results/model_selection.json</span></a>.</li>
+          <li><b>Run locked test evaluation &amp; export site data (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/04_final_test.ipynb" target="_blank" rel="noopener"><span class="code-tag">04_final_test</span></a>, <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/05_export_site_data.ipynb" target="_blank" rel="noopener"><span class="code-tag">05_export_site_data</span></a>):</b><br>Scores the 2025–2026 test set once (locks <span class="code-tag">results/final/test_results.json</span>), exports <span class="code-tag">site/data/site_data.json</span>, and serves locally via <span class="code-tag">python -m http.server 8000</span>.</li>
+        </ol>
       </div>
+    </div>
+
+    <div class="card-panel" style="margin-top:20px">
+      <h3>AI-Use Disclosure, Data License &amp; Citations</h3>
+      <dl class="plain">
+        <dt>AI-Use Disclosure &amp; Independent Verification</dt>
+        <dd>In accordance with ES 335 policy, AI coding assistants (GitHub Copilot / LLMs) were used for frontend UI/CSS scaffolding, SVG chart helpers in <span class="code-tag">site/app.js</span>, player-name mapping boilerplate in <span class="code-tag">scripts/player_names.py</span>, and documentation formatting. All data parsing (<span class="code-tag">parse_cricsheet.py</span>), chronological splitting (<span class="code-tag">data_split.py</span>), empirical DLS curve fitting and 60-match brute-force leakage checks (<span class="code-tag">02_features.ipynb</span>), cross-validated model selection (<span class="code-tag">03_baselines_and_models.ipynb</span>), and locked test evaluation (<span class="code-tag">04_final_test.ipynb</span>) were verified independently via automated assertions (<span class="code-tag">0 disagreements</span> on past-only history features) and audited against raw Cricsheet logs.</dd>
+        <dt>Data Source, License &amp; Key References</dt>
+        <dd>Ball-by-ball data from <a href="https://cricsheet.org/" target="_blank" rel="noopener">Cricsheet</a> (Rushe, 2008–2026), licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> (<span class="code-tag">data/raw/LICENSE.txt</span>). No private data, credentials, or API keys are used. Resource curve formulation follows Duckworth &amp; Lewis (1998), <em>J. Operational Research Society</em> 49(3), 220–227; modeling built with <span class="code-tag">scikit-learn</span> (Pedregosa et al., 2011), <span class="code-tag">NumPy</span>, <span class="code-tag">pandas</span>, and <span class="code-tag">SciPy</span>.</dd>
+      </dl>
     </div>
   </div>
 </section>

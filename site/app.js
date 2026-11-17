@@ -148,11 +148,11 @@ function fillText() {
   const lim = [
     "Effective sample size is matches, not overs: " + m.test_matches + " test matches (~70 per season) produce wide match-bootstrap confidence intervals, so differences of a few thousandths of log loss between close models are indistinguishable from noise.",
     "Non-stationary scoring drift: average first-innings targets rose from " + Math.round(m.mean_target_fit) + " in 2008–2024 to " + Math.round(m.mean_target_test) + " in 2025–2026. Normalizing via target_vs_venue_par kept out-of-range test rows to 0.8%, but higher overall chase success in 200+ totals causes mild under-confidence (calibration slope 1.19, intercept +0.61).",
+    "Predictive association, not causation: feature coefficients and permutation importances reflect conditional correlations in historical chases, not causal interventions (e.g., having wickets in hand predicts winning, but batting passively merely to preserve wickets while required run rate climbs does not causally increase win probability).",
+    "Honesty note on initial data profiling: while Notebooks 01 and 03 strictly filtered season < 2025 and Notebook 04 ran once with a lock file, aggregate season-level match counts and mean targets across the parsed dataset (the 2024–2026 scoring surge) were observed during initial profiling, motivating scale-free and par-normalized features.",
     "Unmodeled conditions: the model sees only scoreboard state. It has no access to pitch wear, evening dew, wind/boundary dimensions, toss strategy, or injuries.",
     "Why player & venue features were dropped from the final 11-feature benchmark: adding career batter/bowler, venue, home, and form features (groups D–G, 39 features) slightly degraded validation log loss (0.3697 to 0.3866) due to small-sample variance across ~70 validation matches. The 39-feature model is provided in the Live Predictor for interactive exploration.",
-    "Excluded match types: rain-shortened DLS chases (23), ties/super-overs and no-results (25), and reduced-overs games (10) were excluded, so the model applies only to full 20-over second innings.",
-    "Manual entity resolution: 60 raw stadium strings and historical franchise renamings were mapped by hand and may not cover future expansion teams or neutral overseas venues.",
-    "Single-shot test evaluation & responsible use: the 2025–2026 test set was evaluated once after freezing model_selection.json; probabilities are for sports analytics and education, never betting advice.",
+    "Excluded match types & manual entity mapping: rain-shortened DLS chases (23), ties/no-results (25), and reduced-overs games (10) are excluded; stadium/franchise mappings are maintained by hand. Probabilities are for sports analytics and education, never betting advice.",
   ];
   $("limits-list").replaceChildren(...lim.map((t) => { const li = document.createElement("li"); li.textContent = t; return li; }));
   const f = $("footer"); f.replaceChildren();

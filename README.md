@@ -1,7 +1,9 @@
 # IPL Chase Win Probability
 
-Predicts the calibrated probability that the chasing team wins an Indian Premier League (IPL) match, given the state of the chase at the end of each completed over. Built for **ES 335 (Machine Learning)**.
+Predicts the calibrated probability that the chasing team wins an Indian Premier League (IPL) match, given the state of the chase at the end of each completed over. Built for **ES 335 (Machine Learning)** by **Tashak Aggarwal**.
 
+> **Author:** Tashak Aggarwal  
+> **Course:** ES 335 — Machine Learning (Undergraduate Track)  
 > **Live Website:** [https://tashakaggarwal.github.io/es335-2026/](https://tashakaggarwal.github.io/es335-2026/)  
 > **Repository:** [https://github.com/tashakaggarwal/es335-2026](https://github.com/tashakaggarwal/es335-2026)
 
@@ -12,6 +14,7 @@ Predicts the calibrated probability that the chasing team wins an Indian Premier
 - **Research Question:** Given the state of a second-innings IPL run chase at the end of each completed over, how much probabilistic accuracy (measured by log loss and calibration) does a learned machine learning model add over the textbook broadcast rule (*"win if current run rate is at least the required run rate"*), and does it remain calibrated despite the 2024–2026 scoring surge?
 - **What One Row Represents:** The exact snapshot of one regular second-innings chase at the end of one completed over $o \in \{1, \dots, 19\}$ (before the 20th over starts or the match finishes earlier).
 - **Target Variable:** `chasing_team_won` $\in \{0, 1\}$ (`1` if the chasing team eventually won the match, `0` otherwise).
+- **Prediction-Time Information Boundary:** A prediction for row $(m, o)$ is made immediately after the final delivery of over $o$. At that instant, the model only has access to pre-match information from dates strictly before match $m$'s date, the first-innings target, second-innings deliveries up to the end of over $o$, and the incoming batter standing at the crease for the start of over $o+1$—never any future deliveries or match outcomes.
 - **Output:** A calibrated probability $\hat{p} \in (0, 1)$, not just a binary win/lose label.
 - **Primary Evaluation Metric:** **Log loss** (cross-entropy), with probabilities clipped to $[10^{-6}, 1 - 10^{-6}]$. **Secondary metrics:** Brier score, calibration slope/intercept & reliability curves, and accuracy by over. All 95% confidence intervals and paired model comparisons resample **whole matches** (`N_BOOT = 2000`) to account for within-match correlation.
 
@@ -160,6 +163,7 @@ All 39 features are documented in `data/features/feature_dictionary.csv` and org
 - Crease batters at the end of over $o$ are identified from the first delivery of over $o+1$ (which records who is standing at the crease, never what happens on that ball).
 - Imputation and scaling live inside scikit-learn `Pipeline` stages; Platt and isotonic recalibrators are fitted on out-of-fold training predictions only.
 - Notebooks 01 and 03 assert `season < 2025`. Notebook 04 writes a lock file (`results/final/test_results.json`) and blocks re-execution.
+- **Honesty Note on Initial Data Profiling:** While no model training, hyperparameter tuning, or feature selection ever touched the 2025–2026 test split, aggregate season-level match counts and average target scores across the parsed `overs.csv` dataset (showing the 2024–2026 scoring surge) were observed during initial dataset profiling, which motivated preferring scale-free and par-normalized features (`target_vs_venue_par`, `runs_needed_frac`).
 
 ---
 
@@ -215,10 +219,16 @@ From `results/final/test_table.csv`:
 
 ---
 
-## 9. Limitations
+## 9. Conclusion & Limitations
 
-- **Modest effective sample size:** ~70 matches per season (`138` test matches total) means match-bootstrap confidence intervals are wide (`±0.06` log loss); small differences between close feature sets are indistinguishable from noise.
+### Conclusion
+- **Substantial Gain Over the Broadcast Rule:** On 138 held-out 2025–2026 test matches (2,434 over states), our pre-selected 11-feature L2 logistic regression (`B +derived`) achieved **0.3815** log loss (**0.1219** Brier, **82.05%** accuracy) vs. **0.5396** log loss (**0.1792** Brier, **75.31%** accuracy) for the textbook run-rate rule (`CRR >= RRR`), a paired improvement of **-0.1576** log loss (`95% CI [-0.2126, -0.0985]`, beating Rule B in **75.4%** of matches).
+- **Domain Feature Engineering Beat Model Complexity:** Encoding non-linear DLS resource depletion (`dls_resources`, `par_score_diff`) and era-adjusted targets (`target_vs_venue_par`) allowed a simple L2 logistic regression to outperform gradient-boosted trees and neural networks without requiring post-hoc recalibration.
+
+### Limitations
+- **Modest effective sample size & winner's curse:** ~70 matches per season (`138` test matches total) means match-bootstrap confidence intervals are wide (`±0.06` log loss); comparing ~18 model/feature candidates on a single 70-match validation season carries selection optimism (winner's curse), which motivated our pre-registered `0.003` parsimony rule.
 - **Correlated rows within a match:** The 19 overs of one chase share the same outcome; effective sample size is the number of matches, not rows.
+- **Predictive association vs. causation:** Model weights and permutation importances reflect conditional correlations in observational scoreboard states, not causal effects (e.g., having wickets in hand strongly predicts winning, but playing overly defensively to preserve wickets while the required run rate climbs does not causally increase win probability).
 - **Unmodeled match conditions:** The model sees no information on pitch deterioration, evening dew, wind/boundary dimensions, or weather interruptions.
 - **Lineup features in small samples:** Adding 28 extra phase, momentum, player, bowling, venue, home, and form features (`D`–`G`) slightly hurt 2024 validation log loss (`0.3697` $\rightarrow$ `0.3866`) due to finite-sample variance; therefore, the parsimonious 11-feature model (`B +derived`) is used for formal evaluation while the 39-feature model is provided in the interactive Live Predictor.
 - **Excluded match types:** Rain-affected DLS games, super-over ties, no-results, and shortened matches are excluded; the model is not applicable to shortened chases.
