@@ -271,7 +271,7 @@ input[type="range"] { flex: 1; min-height: 34px; accent-color: var(--chaser-colo
 
 /* live match tracker */
 .live-stage {
-  grid-template-columns: minmax(0, 1.08fr) minmax(500px, 1fr);
+  grid-template-columns: minmax(0, 1.45fr) minmax(390px, 1fr);
 }
 @media (max-width: 1020px) {
   .live-stage { grid-template-columns: 1fr; }
