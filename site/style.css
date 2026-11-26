@@ -632,3 +632,80 @@ footer {
   border: 1px solid var(--line);
 }
 
+/* Real-time exact linear Shapley feature attribution bars */
+.attrib-box {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: var(--pitch);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.attrib-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.attrib-title {
+  font-family: var(--display);
+  font-weight: 750;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink);
+}
+.attrib-sub {
+  font-family: var(--display);
+  font-size: 0.74rem;
+  color: var(--ink-soft);
+}
+.attrib-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1.25fr) minmax(85px, 1.1fr) 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+.attrib-lbl {
+  font-family: var(--display);
+  font-size: 0.81rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.attrib-track {
+  position: relative;
+  height: 10px;
+  background: color-mix(in srgb, var(--line) 55%, var(--paper));
+  border-radius: 999px;
+  overflow: hidden;
+}
+.attrib-zero {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--ink-soft);
+  opacity: 0.55;
+  z-index: 2;
+}
+.attrib-bar {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  border-radius: 2px;
+  transition: width 0.16s ease, left 0.16s ease;
+}
+.attrib-val {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: right;
+}
+

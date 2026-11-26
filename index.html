@@ -74,10 +74,10 @@
 
     <div class="stat-chips" aria-label="Dataset summary statistics">
       <div class="stat-chip"><div class="chip-val">1,243 &rarr; 1,185</div><div class="chip-lbl">Raw JSONs &rarr; Kept matches</div></div>
-      <div class="stat-chip"><div class="chip-val">21,251</div><div class="chip-lbl">2nd-innings chase over rows</div></div>
+      <div class="stat-chip"><div class="chip-val">21.3k / 131.6k</div><div class="chip-lbl">Over states / Ball-by-ball states</div></div>
       <div class="stat-chip"><div class="chip-val">19 Seasons</div><div class="chip-lbl">2008–23 Train | 2024 Val | 2025–26 Test</div></div>
       <div class="stat-chip"><div class="chip-val">39 &rarr; 11</div><div class="chip-lbl">Engineered &rarr; Selected features</div></div>
-      <div class="stat-chip"><div class="chip-val">0.3815 vs 0.5396</div><div class="chip-lbl">Test Log Loss: Model vs Rule B</div></div>
+      <div class="stat-chip"><div class="chip-val">0.3805 vs 0.5396</div><div class="chip-lbl">Test Log Loss: Model vs Rule B</div></div>
     </div>
 
     <div class="grid-3">
@@ -130,7 +130,7 @@
                 <th scope="col">Matches</th>
                 <th scope="col">Overs</th>
                 <th scope="col">Target</th>
-                <th scope="col">Win %</th>
+                <th scope="col">Match Win %</th>
                 <th scope="col" class="wrap-cell">Pipeline Role</th>
               </tr>
             </thead>
@@ -474,53 +474,73 @@
             <td>&mdash;</td>
           </tr>
           <tr>
-            <td><b>HGB: Boosted trees</b></td>
-            <td class="wrap-cell"><span class="code-tag">HistGradientBoosting(lr=0.03, depth=2, iter=300)</span></td>
-            <td>0.3899</td>
-            <td>[0.2948, 0.5008]</td>
-            <td>0.1253</td>
-            <td>81.60%</td>
-            <td>&minus;0.1614 [&minus;0.2540, &minus;0.0529]</td>
-            <td>99.7%</td>
+            <td><b>HGB: Boosted trees (sklearn)</b></td>
+            <td class="wrap-cell"><span class="code-tag">HistGradientBoosting(lr=0.03, depth=3, iter=200)</span></td>
+            <td>0.3961</td>
+            <td>[0.3004, 0.5076]</td>
+            <td>0.1287</td>
+            <td>81.11%</td>
+            <td>&minus;0.1552 [&minus;0.2479, &minus;0.0455]</td>
+            <td>99.6%</td>
           </tr>
           <tr>
-            <td><b>HGBm: Monotonic trees</b></td>
+            <td><b>HGBm: Monotonic HGB</b></td>
             <td class="wrap-cell">Same HGB + domain monotonicity constraints</td>
-            <td>0.3901</td>
-            <td>[0.2944, 0.5019]</td>
-            <td>0.1253</td>
-            <td>81.68%</td>
-            <td>&minus;0.1612 [&minus;0.2550, &minus;0.0513]</td>
-            <td>99.7%</td>
+            <td>0.3957</td>
+            <td>[0.2978, 0.5090]</td>
+            <td>0.1288</td>
+            <td>81.19%</td>
+            <td>&minus;0.1557 [&minus;0.2483, &minus;0.0462]</td>
+            <td>99.6%</td>
           </tr>
           <tr>
-            <td><b>MLP: Neural network</b></td>
-            <td class="wrap-cell"><span class="code-tag">MLPClassifier(hidden=(16,), alpha=0.1)</span></td>
-            <td>0.3856</td>
-            <td>[0.2808, 0.5109]</td>
-            <td>0.1218</td>
+            <td><b>LGBM / LGBMm: LightGBM</b></td>
+            <td class="wrap-cell"><span class="code-tag">LGBMClassifier(lr=0.03, depth=2, n=200)</span> + monotonic</td>
+            <td>0.3854</td>
+            <td>[0.3001, 0.4835]</td>
+            <td>0.1240</td>
             <td>82.41%</td>
-            <td>&minus;0.1655 [&minus;0.2689, &minus;0.0387]</td>
-            <td>99.4%</td>
+            <td>&minus;0.1661 [&minus;0.2482, &minus;0.0730]</td>
+            <td><b>100.0%</b></td>
+          </tr>
+          <tr>
+            <td><b>XGB / XGBm: XGBoost</b></td>
+            <td class="wrap-cell"><span class="code-tag">XGBClassifier(lr=0.03, depth=2, n=200)</span> + monotonic</td>
+            <td>0.3846</td>
+            <td>[0.3008, 0.4796]</td>
+            <td>0.1235</td>
+            <td>82.81%</td>
+            <td>&minus;0.1669 [&minus;0.2485, &minus;0.0765]</td>
+            <td><b>100.0%</b></td>
+          </tr>
+          <tr>
+            <td><b>MLP: Neural network (weighted)</b></td>
+            <td class="wrap-cell"><span class="code-tag">MLPClassifier(hidden=(16,), alpha=0.1)</span> recency-weighted</td>
+            <td>0.3769</td>
+            <td>[0.2795, 0.4928]</td>
+            <td>0.1198</td>
+            <td><b>83.37%</b></td>
+            <td>&minus;0.1744 [&minus;0.2718, &minus;0.0615]</td>
+            <td>99.9%</td>
           </tr>
           <tr>
             <td><b>LR: Logistic regression (19 feats)</b></td>
-            <td class="wrap-cell">L2 <span class="code-tag">LogisticRegression(C = 0.3162)</span> on <span class="code-tag">C +phase+momentum</span></td>
-            <td><b>0.3690</b></td>
-            <td>[0.2827, 0.4714]</td>
-            <td><b>0.1174</b></td>
-            <td>82.49%</td>
-            <td><b>&minus;0.1825 [&minus;0.2672, &minus;0.0874]</b></td>
+            <td class="wrap-cell">L2 <span class="code-tag">LogisticRegression(C = 0.1)</span> on <span class="code-tag">C +phase+momentum</span></td>
+            <td><b>0.3682</b></td>
+            <td>[0.2820, 0.4703]</td>
+            <td><b>0.1171</b></td>
+            <td>82.65%</td>
+            <td><b>&minus;0.1832 [&minus;0.2676, &minus;0.0880]</b></td>
             <td><b>100.0%</b></td>
           </tr>
           <tr class="final">
             <td><b>Selected: LR (<span class="code-tag">B +derived</span>, 11 feats)</b> <span class="badge-selected">Selected</span></td>
-            <td class="wrap-cell">L2 <span class="code-tag">LogisticRegression(C = 0.3162)</span> (within 0.0007 &le; 0.003 rule)</td>
-            <td><b>0.3697</b></td>
-            <td>[0.2835, 0.4719]</td>
-            <td><b>0.1176</b></td>
-            <td><b>82.89%</b></td>
-            <td><b>&minus;0.1818 [&minus;0.2665, &minus;0.0868]</b></td>
+            <td class="wrap-cell">L2 <span class="code-tag">LogisticRegression(C = 0.1)</span> (within 0.0005 &le; 0.003 rule)</td>
+            <td><b>0.3687</b></td>
+            <td>[0.2825, 0.4708]</td>
+            <td><b>0.1173</b></td>
+            <td>83.13%</td>
+            <td><b>&minus;0.1827 [&minus;0.2671, &minus;0.0875]</b></td>
             <td><b>100.0%</b></td>
           </tr>
         </tbody>
@@ -537,7 +557,7 @@
                 <th scope="col">Ladder Stage</th>
                 <th scope="col">Feats</th>
                 <th scope="col">LR Loss</th>
-                <th scope="col">LR Acc</th>
+                <th scope="col">LGBM Loss</th>
                 <th scope="col">HGB Loss</th>
               </tr>
             </thead>
@@ -545,51 +565,51 @@
               <tr>
                 <td><b>A: core</b></td>
                 <td>6</td>
-                <td>0.3741</td>
-                <td>83.05%</td>
-                <td>0.4041</td>
+                <td>0.3738</td>
+                <td>0.4058</td>
+                <td>0.4097</td>
               </tr>
               <tr class="final">
                 <td><b>B: +derived</b> <span class="badge-selected">Selected</span></td>
                 <td><b>11</b></td>
-                <td><b>0.3697</b></td>
-                <td><b>82.89%</b></td>
-                <td><b>0.3895</b></td>
+                <td><b>0.3687</b></td>
+                <td><b>0.3853</b></td>
+                <td><b>0.3950</b></td>
               </tr>
               <tr>
                 <td><b>C: +phase+momentum</b> (best val)</td>
                 <td>19</td>
-                <td>0.3690</td>
-                <td>82.49%</td>
-                <td>0.3899</td>
+                <td>0.3682</td>
+                <td>0.3854</td>
+                <td>0.3961</td>
               </tr>
               <tr>
                 <td><b>D: +batters+bowl+impact</b></td>
                 <td>31</td>
-                <td>0.3789</td>
-                <td>82.73%</td>
-                <td>0.3971</td>
+                <td>0.3778</td>
+                <td>0.3944</td>
+                <td>0.4066</td>
               </tr>
               <tr>
                 <td><b>E: +history</b></td>
                 <td>34</td>
-                <td>0.3852</td>
-                <td>82.65%</td>
-                <td>0.4101</td>
+                <td>0.3824</td>
+                <td>0.4000</td>
+                <td>0.4086</td>
               </tr>
               <tr>
                 <td><b>F: +home</b></td>
                 <td>37</td>
-                <td>0.3877</td>
-                <td>82.49%</td>
-                <td>0.4123</td>
+                <td>0.3851</td>
+                <td>0.4000</td>
+                <td>0.4165</td>
               </tr>
               <tr>
                 <td><b>G: +form (all 39)</b> <span class="badge-live">Live UI</span></td>
                 <td>39</td>
-                <td>0.3866</td>
-                <td>82.57%</td>
-                <td>0.4001</td>
+                <td>0.3841</td>
+                <td>0.3979</td>
+                <td>0.4036</td>
               </tr>
             </tbody>
           </table>
@@ -599,12 +619,12 @@
       <div class="card-panel">
         <h3>Key Validation Findings</h3>
         <dl class="plain">
-          <dt>Why Linear Beat Boosted Trees &amp; MLP</dt>
-          <dd>Once non-linear resource decay is captured by the empirical DLS curve (<span class="code-tag">dls_resources</span>, <span class="code-tag">par_score_diff</span>), the log-odds of winning are nearly linear. Axis-aligned tree splits create step-function jumps and overfit match noise.</dd>
+          <dt>Why Linear Beat LightGBM, XGBoost, HGB &amp; MLP</dt>
+          <dd>Once non-linear resource decay is captured by the count-weighted empirical DLS curve (<span class="code-tag">dls_resources</span>, <span class="code-tag">par_score_diff</span>), win log-odds are nearly linear. LightGBM (<span class="code-tag">0.3854</span>), XGBoost (<span class="code-tag">0.3846</span>), and weighted MLP (<span class="code-tag">0.3769</span>) all improved over sklearn HGB (<span class="code-tag">0.3961</span>) but trailed L2 LR (<span class="code-tag">0.3682</span>).</dd>
           <dt>Why Extra Groups (D–G) Were Dropped</dt>
-          <dd>Adding player, venue, home, and form features (stages D–G) increased variance on 70 validation matches (<span class="code-tag">0.3697 &rarr; 0.3866</span>). The 0.003 rule selected the 11-feature <span class="code-tag">B +derived</span> set.</dd>
-          <dt>Recalibration Check</dt>
-          <dd>5-fold out-of-fold Platt (<span class="code-tag">0.3695</span>) and isotonic (<span class="code-tag">0.3707</span>) recalibration did not improve over raw L2 logistic regression (<span class="code-tag">0.3690</span>).</dd>
+          <dd>Adding player, venue, home, and form features (stages D–G) increased variance on 70 validation matches (<span class="code-tag">0.3687 &rarr; 0.3841</span>). The 0.003 rule selected the 11-feature <span class="code-tag">B +derived</span> set.</dd>
+          <dt>Weighted Recalibration Check</dt>
+          <dd>5-fold weighted OOF Platt (<span class="code-tag">0.3686</span>) and isotonic (<span class="code-tag">0.3686</span>) recalibration did not improve over raw L2 logistic regression (<span class="code-tag">0.3682</span>).</dd>
         </dl>
       </div>
     </div>
@@ -627,8 +647,11 @@
       <figure><h3>Log Loss by Over</h3><svg id="byover" role="img" viewBox="0 0 380 340" aria-label="Log loss by over"></svg>
         <figcaption>Average log loss after each over. Early on uncertainty is high; late in the chase outcomes are mostly decided.</figcaption></figure>
       <figure><h3>Permutation Feature Importance</h3><svg id="imp" role="img" viewBox="0 0 380 340" aria-label="Feature importance"></svg>
-        <figcaption>Increase in test log loss when permuted (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/final/test_permutation_importance.csv" target="_blank" rel="noopener">CSV</a>). Reflects conditional predictive association, not causation.</figcaption></figure>
+        <figcaption>Permutation test log-loss increase (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/final/test_permutation_importance.csv" target="_blank" rel="noopener">CSV</a>). Under collinearity-safe drop-column refitting (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/final/test_drop_column_importance.csv" target="_blank" rel="noopener">CSV</a>), <span class="code-tag">target_vs_venue_par</span> (+0.0092) and <span class="code-tag">par_score_diff</span> (+0.0021) are most irreplaceable. Predictive, not causal.</figcaption></figure>
     </div>
+
+    <h3 class="sub-heading" id="ball-bench-meta">Ball-by-Ball Granularity &amp; Modern GBDT Benchmark (131,586 Legal Deliveries)</h3>
+    <div class="table-scroll"><table id="ball-results-table"><caption class="note" style="text-align:left;padding:10px 14px;caption-side:bottom">Evaluated on 15,053 held-out 2025–2026 legal deliveries across 138 matches (refitted on 116,533 deliveries from 2008–2024). Even at 6&times; data scale with monotonic LightGBM &amp; XGBoost, domain-engineered logistic regression achieves the lowest log loss and Brier score. Source: <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/final/ball_by_ball_test_table.csv" target="_blank" rel="noopener">ball_by_ball_test_table.csv</a>.</caption></table></div>
 
     <!-- ERROR ANALYSIS SUBSECTION -->
     <h3 class="sub-heading">Error Analysis (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/results/final/test_match_errors.csv" target="_blank" rel="noopener"><span class="code-tag">test_match_errors.csv</span></a>)</h3>
@@ -774,21 +797,21 @@
             <tr>
               <td><b>2025 Season</b></td>
               <td>1,202 (68)</td>
-              <td>0.4211</td>
+              <td>0.4214</td>
               <td>0.5911</td>
-              <td><b>&minus;0.1700</b></td>
-              <td>0.1352</td>
-              <td>79.95%</td>
+              <td><b>&minus;0.1697</b></td>
+              <td>0.1353</td>
+              <td>80.12%</td>
               <td class="wrap-cell">Contains the two largest test upsets (KKR 95 all out; DC 1-wkt win).</td>
             </tr>
             <tr class="final">
               <td><b>2026 Season</b></td>
               <td>1,232 (70)</td>
-              <td><b>0.3428</b></td>
+              <td><b>0.3406</b></td>
               <td>0.4894</td>
-              <td><b>&minus;0.1466</b></td>
-              <td><b>0.1088</b></td>
-              <td><b>84.09%</b></td>
+              <td><b>&minus;0.1488</b></td>
+              <td><b>0.1079</b></td>
+              <td><b>84.58%</b></td>
               <td class="wrap-cell">Best season performance, two years past the training window.</td>
             </tr>
             <tr>
@@ -839,8 +862,8 @@
     <div class="card-panel" style="margin-bottom:20px">
       <h3>Conclusion</h3>
       <ul class="tight">
-        <li><b>Decisive Improvement Over the Broadcast Rule:</b> On 138 held-out 2025–2026 matches (2,434 overs), the 11-feature L2 logistic regression (<span class="code-tag">B +derived</span>) achieved <b>0.3815</b> log loss (<b>0.1219</b> Brier, <b>82.05%</b> accuracy) vs. <b>0.5396</b> for the <span class="code-tag">CRR &ge; RRR</span> rule—a paired gain of <b>&minus;0.1576</b> (<span class="code-tag">95% CI [&minus;0.2126, &minus;0.0985]</span>, winning <b>75.4%</b> of matches).</li>
-        <li><b>Domain Features Beat Complex Models:</b> Encoding non-linear DLS resource depletion (<span class="code-tag">dls_resources</span>, <span class="code-tag">par_score_diff</span>) and venue-par adjustments (<span class="code-tag">target_vs_venue_par</span>) let a simple linear model beat boosted trees (<span class="code-tag">0.3899</span>) and an MLP (<span class="code-tag">0.3856</span>) without post-hoc recalibration.</li>
+        <li><b>Decisive Improvement Over the Broadcast Rule:</b> On 138 held-out 2025–2026 matches (2,434 overs), the 11-feature L2 logistic regression (<span class="code-tag">B +derived</span>) achieved <b>0.3805</b> log loss (<b>0.1214</b> Brier, <b>82.37%</b> accuracy) vs. <b>0.5396</b> for the <span class="code-tag">CRR &ge; RRR</span> rule—a paired gain of <b>&minus;0.1586</b> (<span class="code-tag">95% CI [&minus;0.2134, &minus;0.0997]</span>, winning <b>75.4%</b> of matches), and <b>0.3820–0.3847</b> across 15,053 ball-by-ball test deliveries.</li>
+        <li><b>Domain Features Beat Complex Models:</b> Encoding count-weighted DLS resource depletion (<span class="code-tag">dls_resources</span>, <span class="code-tag">par_score_diff</span>) and venue-par adjustments (<span class="code-tag">target_vs_venue_par</span>) let a simple linear model beat LightGBM (<span class="code-tag">0.3854</span>), XGBoost (<span class="code-tag">0.3846</span>), sklearn HGB (<span class="code-tag">0.3961</span>), and a weighted MLP (<span class="code-tag">0.3769</span>) without post-hoc recalibration.</li>
       </ul>
     </div>
 
@@ -850,15 +873,14 @@
         <ul class="tight" id="limits-list"></ul>
       </div>
       <div class="card-panel">
-        <h3>Reproduction Steps &amp; Disclosure (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/README.md" target="_blank" rel="noopener">README.md ↗</a>)</h3>
+        <h3>Reproduction Steps &amp; CI (<a href="https://github.com/tashakaggarwal/es335-2026/blob/main/README.md" target="_blank" rel="noopener">README.md ↗</a>)</h3>
         <ol class="steps" style="font-size:0.9rem;margin-bottom:10px">
-          <li><span class="code-tag">pip install -r requirements.txt</span></li>
-          <li><span class="code-tag">python scripts/parse_cricsheet.py data/raw --out data/parsed/overs.csv</span></li>
-          <li>Run <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/02_features.ipynb" target="_blank" rel="noopener"><span class="code-tag">notebooks/02_features.ipynb</span></a>, then <span class="code-tag">python scripts/data_split.py</span></li>
-          <li>Run <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/01_eda.ipynb" target="_blank" rel="noopener"><span class="code-tag">01_eda</span></a> &amp; <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/03_baselines_and_models.ipynb" target="_blank" rel="noopener"><span class="code-tag">03_baselines_and_models</span></a> &rarr; writes <span class="code-tag">model_selection.json</span></li>
-          <li>Run <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/04_final_test.ipynb" target="_blank" rel="noopener"><span class="code-tag">04_final_test</span></a> (locks <span class="code-tag">test_results.json</span>) &amp; <a href="https://github.com/tashakaggarwal/es335-2026/blob/main/notebooks/05_export_site_data.ipynb" target="_blank" rel="noopener"><span class="code-tag">05_export_site_data</span></a>, then serve via <span class="code-tag">python -m http.server 8000</span></li>
+          <li><span class="code-tag">pip install -e ".[dev]"</span> &amp; <span class="code-tag">python scripts/download_data.py</span></li>
+          <li>Run full reproducible pipeline: <span class="code-tag">python -m ipl_winprob.pipeline</span> (parses 1,243 JSONs, fits DLS curve, runs 60-match leakage audit, benchmarks LR/HGB/LightGBM/XGBoost/MLP + 131k ball-by-ball deliveries, exports <span class="code-tag">site_data.json</span>)</li>
+          <li>Verify automated tests &amp; Python&ndash;JS inference parity: <span class="code-tag">pytest &amp;&amp; ruff check src scripts tests</span></li>
+          <li>Preview locally: <span class="code-tag">python -m http.server 8000</span></li>
         </ol>
-        <p class="note"><b>AI &amp; Data Disclosure:</b> AI tools assisted with frontend UI/SVG scaffolding and player-name mapping boilerplate; all parsing, leakage checks, modeling, and evaluation were verified independently. Data from <a href="https://cricsheet.org/" target="_blank" rel="noopener">Cricsheet</a> (CC BY 4.0); DLS form after Duckworth &amp; Lewis (1998).</p>
+        <p class="note"><b>AI &amp; Data Disclosure:</b> AI tools assisted with frontend UI/SVG scaffolding and player-name mapping boilerplate; all parsing, leakage checks, modeling, and evaluation are verified via automated <span class="code-tag">pytest</span> &amp; GitHub Actions CI. Code under MIT License; data from <a href="https://cricsheet.org/" target="_blank" rel="noopener">Cricsheet</a> (CC BY 4.0); DLS form after Duckworth &amp; Lewis (1998).</p>
       </div>
     </div>
   </div>
@@ -869,6 +891,7 @@
   <div class="wrap" id="footer"></div>
 </footer>
 
+<script src="site/inference.js"></script>
 <script src="site/app.js"></script>
 </body>
 </html>

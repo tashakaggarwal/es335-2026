@@ -15,7 +15,7 @@
     "runs_needed_per_wicket"
   ],
   "params": {
-    "C": 0.31622776601683794
+    "C": 0.1
   },
   "fitted_on_seasons": [
     2008,
@@ -44,16 +44,16 @@
       "accuracy": 0.7530813475760065
     },
     "FINAL logreg (B +derived)": {
-      "log_loss": 0.381479397064046,
-      "brier": 0.1218659305546821,
-      "accuracy": 0.8204601479046837
+      "log_loss": 0.38048445837205447,
+      "brier": 0.12139838521306874,
+      "accuracy": 0.823746918652424
     },
     "(ref) same model, train only": {
-      "log_loss": 0.3884359531063819,
-      "brier": 0.12478956364545021,
-      "accuracy": 0.8167625308134757
+      "log_loss": 0.3866504789902751,
+      "brier": 0.1239658801144994,
+      "accuracy": 0.8163516844700082
     }
   },
-  "calibration_slope": 1.1858054423826094,
-  "calibration_intercept": 0.6126167583566283
+  "calibration_slope": 1.1921198068279775,
+  "calibration_intercept": 0.6035144989539345
 }
