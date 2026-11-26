@@ -1,0 +1,22 @@
+# Raw & intermediate generated datasets (reproducible via scripts/download_data.py & pipeline)
+data/raw/
+data/parsed/
+data/features/
+data/split/
+
+# Python caches & build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+
+# Jupyter & editor state
+.ipynb_checkpoints/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -15,10 +15,10 @@
     "runs_needed_per_wicket"
   ],
   "params": {
-    "C": 0.31622776601683794
+    "C": 0.1
   },
   "recency_decay": 0.08,
-  "validation_log_loss": 0.36967133632402743,
+  "validation_log_loss": 0.3687497528153956,
   "selection_rule": "simplest candidate within 0.003 of the best validation log loss",
   "train_seasons": [
     2008,

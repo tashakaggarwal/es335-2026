@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ipl-winprob"
+version = "1.0.0"
+description = "Calibrated over-by-over and ball-by-ball IPL chase win probability modeling with empirical DLS curves and leakage-free temporal evaluation."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Tashak Aggarwal" }]
+dependencies = [
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "scikit-learn>=1.6.0",
+    "scipy>=1.10.0",
+    "lightgbm>=4.0.0",
+    "xgboost>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.6.0",
+    "matplotlib>=3.7.0",
+    "jupyter>=1.0.0",
+    "nbformat>=5.9.0",
+]
+
+[project.scripts]
+ipl-winprob = "ipl_winprob.pipeline:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v"
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]

@@ -1,0 +1,80 @@
+{
+  "total_rows": 131586,
+  "train_val_rows": 116533,
+  "test_rows": 15053,
+  "test_matches": 138,
+  "models": [
+    {
+      "name": "A  constant",
+      "log_loss": 0.689,
+      "brier": 0.2479,
+      "accuracy": 0.5608,
+      "ci": "[0.6823, 0.6960]",
+      "diff": 0.14259004371884373,
+      "diff_ci": "[0.0893, 0.1916]"
+    },
+    {
+      "name": "A2 win rate by over",
+      "log_loss": 0.6831,
+      "brier": 0.2451,
+      "accuracy": 0.5725,
+      "ci": "[0.6752, 0.6908]",
+      "diff": 0.13661145728856103,
+      "diff_ci": "[0.0840, 0.1852]"
+    },
+    {
+      "name": "B  rule: current >= required",
+      "log_loss": 0.5466,
+      "brier": 0.1822,
+      "accuracy": 0.7466,
+      "ci": "[0.4939, 0.6018]",
+      "diff": null,
+      "diff_ci": ""
+    },
+    {
+      "name": "LR (11 feats, ball-by-ball)",
+      "log_loss": 0.3847,
+      "brier": 0.1233,
+      "accuracy": 0.8185,
+      "ci": "[0.3232, 0.4526]",
+      "diff": -0.16137464714619748,
+      "diff_ci": "[-0.2153, -0.1033]"
+    },
+    {
+      "name": "LR (19 feats, ball-by-ball)",
+      "log_loss": 0.382,
+      "brier": 0.1226,
+      "accuracy": 0.821,
+      "ci": "[0.3224, 0.4484]",
+      "diff": -0.16404993847282096,
+      "diff_ci": "[-0.2184, -0.1065]"
+    },
+    {
+      "name": "HGBm (19 feats, ball-by-ball)",
+      "log_loss": 0.3916,
+      "brier": 0.1246,
+      "accuracy": 0.8162,
+      "ci": "[0.3290, 0.4615]",
+      "diff": -0.1544907394085107,
+      "diff_ci": "[-0.2145, -0.0910]"
+    },
+    {
+      "name": "LGBMm (19 feats, ball-by-ball)",
+      "log_loss": 0.3961,
+      "brier": 0.1266,
+      "accuracy": 0.8212,
+      "ci": "[0.3388, 0.4605]",
+      "diff": -0.14994354879521077,
+      "diff_ci": "[-0.2045, -0.0931]"
+    },
+    {
+      "name": "XGBm (19 feats, ball-by-ball)",
+      "log_loss": 0.3932,
+      "brier": 0.1253,
+      "accuracy": 0.8252,
+      "ci": "[0.3359, 0.4564]",
+      "diff": -0.1529104968914941,
+      "diff_ci": "[-0.2077, -0.0962]"
+    }
+  ]
+}

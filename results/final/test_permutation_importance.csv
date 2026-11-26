@@ -1,12 +1,12 @@
 ,log loss increase
-balls_left,0.1811
-runs_needed_per_wicket,0.1265
-required_run_rate,0.0718
-run_rate_diff,0.0469
-target_vs_venue_par,0.0409
-wickets_lost,0.0372
-runs_so_far,0.037
-runs_needed_frac,0.0142
-current_run_rate,0.0134
-par_score_diff,0.0079
-dls_resources,0.0018
+runs_needed_per_wicket,0.0933
+balls_left,0.0832
+required_run_rate,0.0731
+run_rate_diff,0.0477
+target_vs_venue_par,0.0449
+wickets_lost,0.0309
+runs_so_far,0.0275
+par_score_diff,0.0208
+current_run_rate,0.0133
+dls_resources,0.0083
+runs_needed_frac,-0.0017

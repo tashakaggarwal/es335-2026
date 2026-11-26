@@ -141,7 +141,7 @@ function fillText() {
   const ci = parseCI(fin.diff_ci);
   const clear = ci && ci[1] < 0;
   $("results-intro").textContent = "Evaluated once on " + m.test_matches + " held-out " + seasons + " matches (" + m.test_rows.toLocaleString() + " over states): the 11-feature logistic regression achieves " + f3(fin.log_loss) + " log loss (" + f3(fin.brier) + " Brier, " + (fin.accuracy * 100).toFixed(1) + "% accuracy) vs. " + f3(rule.log_loss) + " log loss (" + f3(rule.brier) + " Brier, " + (rule.accuracy * 100).toFixed(1) + "% accuracy) for Rule B.";
-  $("results-read").textContent = "Paired gain over Rule B: " + f3(Math.abs(fin.diff)) + " log loss (95% match-bootstrap CI " + fin.diff_ci + ", P(better) = 100%). Refitting on 2008–2024 vs. 2008–2023 improved test log loss from 0.3884 to 0.3815.";
+  $("results-read").textContent = "Paired gain over Rule B: " + f3(Math.abs(fin.diff)) + " log loss (95% match-bootstrap CI " + fin.diff_ci + ", P(better) = 100%). Refitting on 2008–2024 vs. 2008–2023 improved test log loss from 0.3867 to " + f3(fin.log_loss) + ".";
   const lim = [
     "Small match count (" + m.test_matches + " test matches): effective sample size is matches, not overs, yielding wide bootstrap CIs.",
     "Era shift & mild under-confidence: higher 200+ chase success in 2025–2026 produces a calibration slope of 1.19 (intercept +0.61).",
@@ -305,6 +305,71 @@ function drawWorm() {
   renderWormSVG($("worm"), cur.chaser, cur.bowler, cCol, bCol, cur.overs, overIdx + 1, $("chk-rule").checked, $("chk-reveal").checked, "clip");
 }
 
+function renderAttributionBars(parent, contributions, chaserColor, bowlerColor, titleText, maxItems = 5) {
+  if (!contributions || !contributions.length) return;
+  const top = contributions
+    .filter((c) => Math.abs(c.delta) >= 0.015)
+    .slice()
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+    .slice(0, maxItems);
+  if (!top.length) return;
+
+  const box = document.createElement("div");
+  box.className = "attrib-box";
+  const head = document.createElement("div");
+  head.className = "attrib-head";
+  const t = document.createElement("span");
+  t.className = "attrib-title";
+  t.textContent = titleText || "Top log-odds drivers (exact linear Shapley)";
+  const sub = document.createElement("span");
+  sub.className = "attrib-sub";
+  sub.textContent = "− bowling  |  chasing +";
+  head.append(t, sub);
+  box.appendChild(head);
+
+  const maxAbs = Math.max(...top.map((c) => Math.abs(c.delta)), 0.25);
+  top.forEach((c) => {
+    const row = document.createElement("div");
+    row.className = "attrib-row";
+
+    const lbl = document.createElement("span");
+    lbl.className = "attrib-lbl";
+    lbl.textContent = label(c.feature);
+    lbl.title = label(c.feature) + ": value " + f2(c.value) + " (z = " + (c.z >= 0 ? "+" : "") + f2(c.z) + ")";
+
+    const track = document.createElement("div");
+    track.className = "attrib-track";
+    const zero = document.createElement("span");
+    zero.className = "attrib-zero";
+    track.appendChild(zero);
+
+    const bar = document.createElement("span");
+    const pctW = Math.min(50, (Math.abs(c.delta) / maxAbs) * 48);
+    if (c.delta >= 0) {
+      bar.className = "attrib-bar attrib-pos";
+      bar.style.left = "50%";
+      bar.style.width = pctW.toFixed(1) + "%";
+      bar.style.background = chaserColor;
+    } else {
+      bar.className = "attrib-bar attrib-neg";
+      bar.style.left = (50 - pctW).toFixed(1) + "%";
+      bar.style.width = pctW.toFixed(1) + "%";
+      bar.style.background = bowlerColor;
+    }
+    track.appendChild(bar);
+
+    const val = document.createElement("span");
+    val.className = "attrib-val";
+    val.style.color = c.delta >= 0 ? chaserColor : bowlerColor;
+    val.textContent = (c.delta >= 0 ? "+" : "−") + Math.abs(c.delta).toFixed(2);
+
+    row.append(lbl, track, val);
+    box.appendChild(row);
+  });
+
+  parent.appendChild(box);
+}
+
 function drawState() {
   if (!cur) return;
   const [cCol, bCol] = getMatchColors(cur.chaser, cur.bowler);
@@ -331,6 +396,14 @@ function drawState() {
   row("Scoring at", f2(crr) + " an over");
   row("Run-rate rule", pB > 0.5 ? "chasing side is on or ahead of the rate" : "chasing side is behind the rate");
   s.appendChild(dl);
+
+  // Exact real-time feature attribution ("Why X%?")
+  if (window.IPLInference && DATA && DATA.whatif) {
+    const fm = window.IPLInference.buildExplorerFeatureMap(cur, o, DATA.whatif.dls_params, DATA.whatif.default_recent_par || 175);
+    const out = window.IPLInference.evalLinearModel(fm, DATA.whatif);
+    renderAttributionBars(s, out.contributions, cCol, bCol, "Why " + pct(p) + "%? Top drivers", 5);
+  }
+
   if (reveal) add("div", "result", cur.chaser + (cur.won ? " won the chase." : " lost the chase.") + (cur.won === (p >= 0.5) ? " The model was leaning the right way at this point." : " The model was leaning the wrong way at this point."));
 }
 
@@ -338,18 +411,31 @@ function drawState() {
 const LIVE_STORAGE_KEY = "es335_live_match_v4";
 let LIVE = null;
 
-function evalFullModel(featMap, useLive27 = false) {
-  const M = (useLive27 && DATA.whatif.live_model) ? DATA.whatif.live_model : DATA.whatif;
-  let z = M.intercept;
-  M.features.forEach((f, i) => {
+function evalFullModelDetailed(featMap, useLive39 = false) {
+  const M = (useLive39 && DATA.whatif.live_model) ? DATA.whatif.live_model : DATA.whatif;
+  if (window.IPLInference) {
+    return window.IPLInference.evalLinearModel(featMap, M);
+  }
+  let logit = M.intercept;
+  const contributions = M.features.map((f, i) => {
     const x = f in featMap && !Number.isNaN(featMap[f]) ? featMap[f] : M.mean[i];
-    z += M.coef[i] * ((x - M.mean[i]) / M.scale[i]);
+    const z = (x - M.mean[i]) / M.scale[i];
+    const delta = M.coef[i] * z;
+    logit += delta;
+    return { feature: f, value: x, z, coef: M.coef[i], delta };
   });
-  return 1 / (1 + Math.exp(-z));
+  return { p: 1 / (1 + Math.exp(-logit)), logit, contributions };
+}
+
+function evalFullModel(featMap, useLive39 = false) {
+  return evalFullModelDetailed(featMap, useLive39).p;
 }
 
 function computeDLSResources(ballsLeft, wicketsLost) {
   const dls = (DATA && DATA.whatif && DATA.whatif.dls_params) || null;
+  if (window.IPLInference) {
+    return window.IPLInference.computeDLSResources(ballsLeft, wicketsLost, dls);
+  }
   if (!dls || ballsLeft <= 0 || wicketsLost >= 10) return 0;
   const w = clamp(Math.round(wicketsLost), 0, 9);
   const z0 = (dls.Z0 && dls.Z0[w]) || 160;
@@ -481,35 +567,12 @@ function computeOverPrediction(oversSoFar, overEntry, liveState) {
       });
     }
   }
-  let best_bowler_overs_left = Math.min(8, Math.round(remOvers * 0.42 * 10) / 10);
-  let bowl_rem_econ = ctx.bowl_rem_econ;
-  let bowl_rem_wkt_rate = ctx.bowl_rem_wkt_rate;
-  if (activeBowlers.length > 0) {
-    const mainPool = activeBowlers.filter((b) => b.balls >= 60 || b.bowled > 0);
-    const rankPool = (mainPool.length >= 2 ? mainPool : activeBowlers).slice().sort((a, b) => a.econ - b.econ);
-    const top2 = rankPool.slice(0, 2);
-    best_bowler_overs_left = Math.min(remOvers, top2.reduce((s, b) => s + b.quotaLeft, 0));
-
-    if (remOvers > 0) {
-      const sortedAll = activeBowlers.slice().sort((a, b) => a.econ - b.econ);
-      let needOv = remOvers, wEcon = 0, wWkt = 0;
-      for (const b of sortedAll) {
-        if (needOv <= 0) break;
-        const take = Math.min(needOv, b.quotaLeft);
-        if (take > 0) {
-          wEcon += take * b.econ;
-          wWkt += take * b.wkt_rate;
-          needOv -= take;
-        }
-      }
-      if (needOv > 0) {
-        wEcon += needOv * ctx.bowl_rem_econ;
-        wWkt += needOv * ctx.bowl_rem_wkt_rate;
-      }
-      bowl_rem_econ = wEcon / remOvers;
-      bowl_rem_wkt_rate = wWkt / remOvers;
-    }
-  }
+  const fallbackEcon = (DATA.whatif && DATA.whatif.league_prior_econ) || ctx.bowl_rem_econ;
+  const fallbackWkt = (DATA.whatif && DATA.whatif.league_prior_wkt) || ctx.bowl_rem_wkt_rate;
+  const bowlCalc = window.IPLInference
+    ? window.IPLInference.computeRemainingBowling(activeBowlers, remOvers, fallbackEcon, fallbackWkt)
+    : { bowl_rem_econ: fallbackEcon, bowl_rem_wkt_rate: fallbackWkt, best_bowler_overs_left: Math.min(8, Math.round(remOvers * 0.42 * 10) / 10) };
+  const { bowl_rem_econ, bowl_rem_wkt_rate, best_bowler_overs_left } = bowlCalc;
 
   const feats = {
     runs_so_far: runs,
@@ -564,9 +627,10 @@ function computeOverPrediction(oversSoFar, overEntry, liveState) {
     return { p: 0.0, pB: 0.0, rrr: rawRrr, crr, rrd, need, balls, resources: 0, dls_resources: 0, par_score_diff: runs - target, runs_needed_frac, runs_needed_per_wicket, is_powerplay, is_death, powerplay_balls_left: 0, runs_last_3, wkts_last_3, bounds_last_3, accel, bat_sr_mean, bat_bpd_mean, bat_balls_sum, bat_balls_max, bat_runs_sum, settled_sr_interaction, rem_bat_n: 0, rem_bat_quality: 0, rem_bat_sr, bowl_rem_econ, bowl_rem_wkt_rate, best_bowler_overs_left: 0, ctx, decided: "lost" };
   }
 
-  const p = evalFullModel(feats, true);
+  const detailed = evalFullModelDetailed(feats, true);
+  const p = detailed.p;
   const pB = rrd <= 0 ? pWin : pLose;
-  return { p, pB, rrr: rawRrr, crr, rrd, need, balls, resources, dls_resources, par_score_diff, runs_needed_frac, runs_needed_per_wicket, is_powerplay, is_death, powerplay_balls_left, runs_last_3, wkts_last_3, bounds_last_3, accel, bat_sr_mean, bat_bpd_mean, bat_balls_sum, bat_balls_max, bat_runs_sum, settled_sr_interaction, rem_bat_n, rem_bat_quality, rem_bat_sr, bowl_rem_econ, bowl_rem_wkt_rate, best_bowler_overs_left, ctx, decided: null };
+  return { p, pB, contributions: detailed.contributions, rrr: rawRrr, crr, rrd, need, balls, resources, dls_resources, par_score_diff, runs_needed_frac, runs_needed_per_wicket, is_powerplay, is_death, powerplay_balls_left, runs_last_3, wkts_last_3, bounds_last_3, accel, bat_sr_mean, bat_bpd_mean, bat_balls_sum, bat_balls_max, bat_runs_sum, settled_sr_interaction, rem_bat_n, rem_bat_quality, rem_bat_sr, bowl_rem_econ, bowl_rem_wkt_rate, best_bowler_overs_left, ctx, decided: null };
 }
 
 function defaultTeamXI(teamName) {
@@ -1128,6 +1192,10 @@ function drawLiveState() {
   const sp = document.createElement("div"); sp.className = "split"; sp.style.background = bCol;
   const i = document.createElement("i"); i.style.width = (o.p * 100).toFixed(1) + "%"; i.style.background = cCol; sp.appendChild(i); s.appendChild(sp);
 
+  if (o.contributions && o.contributions.length && !o.decided) {
+    renderAttributionBars(s, o.contributions, cCol, bCol, "Why " + pct(o.p) + "%? Top drivers", 6);
+  }
+
   add("h3", "live-stats-heading", "Computed statistics");
   const groupsWrap = document.createElement("div");
   groupsWrap.className = "live-stat-groups";
@@ -1250,8 +1318,9 @@ function initWhatIf() {
   const [tmin, tmax] = WI.target_range;
   const t = $("wi-target"); t.min = Math.max(60, tmin); t.max = tmax; t.value = Math.round(DATA.meta.mean_target_fit || 175);
   ["wi-target", "wi-over", "wi-runs", "wi-wkts"].forEach((id) => $(id).addEventListener("input", drawWhatIf));
+  const defaultParVal = Math.round((WI && WI.default_recent_par) || (DATA.meta && DATA.meta.mean_target_fit) || 195);
   $("wi-note").textContent = WI.same_as_final_model
-    ? "This is the final model. Inputs you cannot set here (" + (WI.held_at_average.length ? WI.held_at_average.map(label).join(", ").toLowerCase() : "venue par") + ") are held at their training average. Use the Live match predictor above to evaluate all 39 features."
+    ? "This is the final 11-feature model. Venue par is anchored at the recent 30-match IPL par (" + defaultParVal + " runs). Use the Live Predictor above to evaluate all 39 features."
     : "This panel uses a simpler logistic regression on the core and derived features, not the final model, so numbers can differ a little from the explorer.";
   drawWhatIf();
 }
@@ -1266,8 +1335,8 @@ function wiProb(target, over, runs, wk) {
     current_run_rate: crr, required_run_rate: rrr, run_rate_diff: rrr - crr, runs_needed_frac: need / target,
     resources: balls * hand, dls_resources, par_score_diff, runs_needed_per_wicket: need / hand,
   };
-  const p = evalFullModel(v, false);
-  return { p, need, balls, rrr: need / balls * 6, crr, ahead: crr >= need / balls * 6 };
+  const detailed = evalFullModelDetailed(v, false);
+  return { p: detailed.p, contributions: detailed.contributions, need, balls, rrr: need / balls * 6, crr, ahead: crr >= need / balls * 6 };
 }
 function drawWhatIf() {
   const target = +$("wi-target").value, over = +$("wi-over").value, wk = +$("wi-wkts").value;
@@ -1293,6 +1362,9 @@ function drawWhatIf() {
   row("Scoring at", f2(r.crr) + " an over");
   row("Run-rate rule", r.ahead ? "on or ahead of the rate" : "behind the rate");
   s.appendChild(dl);
+  if (r.contributions && r.contributions.length) {
+    renderAttributionBars(s, r.contributions, css("--outfield"), css("--ball"), "Why " + pct(r.p) + "%? Top drivers", 5);
+  }
 }
 
 /* ---------- results ---------- */
@@ -1314,7 +1386,43 @@ function drawResults() {
     body.appendChild(tr);
   });
   t.insertBefore(body, cap);
+  drawBallBenchmark();
   drawCal(); drawByOver(); drawImp();
+}
+function drawBallBenchmark() {
+  const t = $("ball-results-table");
+  if (!t || !DATA || !DATA.ball_benchmark || !DATA.ball_benchmark.models) return;
+  const bb = DATA.ball_benchmark;
+  const metaEl = $("ball-bench-meta");
+  if (metaEl) {
+    metaEl.textContent = "Ball-by-Ball Granularity Benchmark (" + bb.total_rows.toLocaleString() + " legal deliveries; " + bb.test_rows.toLocaleString() + " test deliveries across " + bb.test_matches + " matches)";
+  }
+  const cap = t.querySelector("caption");
+  t.replaceChildren(cap);
+  const head = document.createElement("thead"), hr = document.createElement("tr");
+  ["Model (Ball-by-Ball)", "Log Loss", "95% Match CI", "Brier Score", "Accuracy", "Diff vs Rule B (95% CI)"].forEach((h) => {
+    const th = document.createElement("th"); th.scope = "col"; th.textContent = h; hr.appendChild(th);
+  });
+  head.appendChild(hr);
+  t.insertBefore(head, cap.nextSibling);
+  const body = document.createElement("tbody");
+  const bestLL = Math.min(...bb.models.map((m) => m.log_loss));
+  bb.models.forEach((r) => {
+    const tr = document.createElement("tr");
+    if (Math.abs(r.log_loss - bestLL) < 1e-6) tr.className = "final";
+    [
+      r.name,
+      f3(r.log_loss),
+      r.ci,
+      r.brier != null ? r.brier.toFixed(4) : "-",
+      (r.accuracy * 100).toFixed(2) + "%",
+      r.diff == null ? "-" : (r.diff > 0 ? "+" : "") + f3(r.diff) + " " + r.diff_ci,
+    ].forEach((v) => {
+      const td = document.createElement("td"); td.textContent = v; tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+  t.insertBefore(body, cap);
 }
 function frame(svg, xl, yl, xmax, ymax, ticksX, ticksY, fmtY) {
   const W = 380, H = 340, l = 46, r = 12, t = 14, b = 44;
